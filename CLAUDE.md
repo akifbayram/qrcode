@@ -10,7 +10,7 @@ Offline-first PWA for organizing physical storage bins. Users create named bins,
 
 - **Runtime**: React 18 + TypeScript 5 (strict) + Vite 5
 - **Styling**: Tailwind CSS 4 with CSS custom properties (iOS 26 Liquid Glass design system)
-- **Data**: Dexie.js 4 (IndexedDB), schema version 2 — tables: `bins`, `photos`
+- **Data**: Dexie.js 4 (IndexedDB), schema version 5 — tables: `bins`, `photos`
 - **Routing**: react-router-dom 6 (HashRouter), lazy-loaded routes
 - **QR**: `qrcode` (generation), `html5-qrcode` (scanning)
 - **PWA**: vite-plugin-pwa
@@ -23,13 +23,13 @@ Offline-first PWA for organizing physical storage bins. Users create named bins,
 src/
   components/ui/    # Reusable primitives (button, card, dialog, input, toast, etc.)
   features/         # Feature modules — each owns its pages, hooks, and helpers
-    bins/           # BinListPage, BinDetailPage, useBins, BinCard, TagInput
+    bins/           # BinListPage, BinDetailPage, useBins, BinCard, TagInput, IconPicker, ColorPicker
     photos/         # PhotoGallery, PhotoLightbox, usePhotos, compressImage
     qrcode/         # QRScannerPage, QRCodeDisplay, Html5QrcodePlugin
     print/          # PrintPage, LabelSheet, LabelCell
     settings/       # SettingsPage, exportImport
     layout/         # AppLayout, Sidebar, BottomNav
-  lib/              # Shared utilities (utils.ts, theme.ts, navItems.ts, constants.ts)
+  lib/              # Shared utilities (utils.ts, theme.ts, navItems.ts, constants.ts, iconMap.ts, colorPalette.ts, appSettings.ts)
   db/index.ts       # Dexie singleton
   types.ts          # All shared interfaces
 ```
@@ -44,12 +44,18 @@ src/
 - **Responsive**: mobile-first. Bottom nav on mobile (`lg:hidden`), sidebar on desktop (`hidden lg:flex`). Breakpoint is `lg` (1024px).
 - **Lazy loading**: Scanner, Print, and Settings pages are `React.lazy` with `<Suspense>`.
 - **`cn()` helper** (clsx + tailwind-merge) for conditional class composition.
+- **`addBin()` accepts an options object** (`AddBinOptions`): `{ name, items?, notes?, tags?, location?, icon?, color? }`. Do not use positional arguments.
+- **Icon/color fields**: `icon` and `color` are strings on the `Bin` interface. Empty string `''` means default (Package icon, no color). Icon stores PascalCase lucide name (e.g. `'Wrench'`); color stores a preset key (e.g. `'blue'`).
+- **`resolveIcon(name)`** in `lib/iconMap.ts` returns a LucideIcon, falling back to Package.
+- **`getColorPreset(key)`** in `lib/colorPalette.ts` returns `{ bg, bgDark, dot }` for theme-aware tinting.
+- **App settings**: `useAppSettings()` in `lib/appSettings.ts` manages app name/subtitle via `localStorage('qrbin-app-name')`.
 
 ## Gotchas
 
 - **No shadcn CLI** — do not run `npx shadcn` commands. All UI components are custom.
 - **Theme**: stored in `localStorage('qrbin-theme')`, applied via `<html class="dark|light">` before first paint (inline script in `index.html`). The `useTheme()` hook in `lib/theme.ts` is the single source of truth at runtime.
 - **Dexie dates**: IndexedDB stores `Date` objects natively. Export serializes to ISO strings; import deserializes back.
+- **Export backward compatibility**: `ExportBinV2` has optional `icon?`, `color?` fields. Import defaults missing fields to `''`. Old backups without these fields import cleanly.
 - **`html5-qrcode` is ~330KB gzipped** — always dynamic-import the scanner page; never import statically.
 - **Photo blobs**: stored as raw `Blob` in IndexedDB. Object URLs must be revoked on cleanup. Export converts to base64.
 - **HashRouter** — all internal links use `#/path` format. `useNavigate` handles this transparently.
@@ -59,8 +65,16 @@ src/
 
 ```sh
 npx tsc --noEmit   # Zero type errors
+npx vitest run     # All tests pass
 npx vite build     # Successful production build
 ```
+
+## Testing
+
+- **Vitest 4** with **happy-dom** environment (not jsdom — jsdom 27 has ESM/CJS incompatibility).
+- `fake-indexeddb/auto` imported in test setup for Dexie testing.
+- `@testing-library/jest-dom` for DOM matchers.
+- Test files live in `__tests__/` directories next to their feature code.
 
 ## Git Workflow
 
