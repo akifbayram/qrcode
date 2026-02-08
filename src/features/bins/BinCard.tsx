@@ -86,25 +86,25 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
               <Highlight text={bin.contents} query={searchQuery} />
             </p>
           )}
+          {bin.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {bin.tags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="cursor-pointer text-[11px] hover:bg-[var(--bg-active)] transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!selectable) onTagClick?.(tag);
+                  }}
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-      {bin.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-3 pl-8">
-          {bin.tags.map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="cursor-pointer text-[11px] hover:bg-[var(--bg-active)] transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!selectable) onTagClick?.(tag);
-              }}
-            >
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      )}
     </div>
   );
 }, (prev, next) => {

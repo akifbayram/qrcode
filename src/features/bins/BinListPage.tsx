@@ -94,7 +94,7 @@ export function BinListPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-[var(--page-px)] pt-6 pb-2">
+    <div className="flex flex-col gap-4 px-5 pt-6 pb-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-[34px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
@@ -128,7 +128,7 @@ export function BinListPage() {
           className="shrink-0 rounded-[var(--radius-full)] gap-1.5 h-10 px-3.5"
         >
           <ArrowUpDown className="h-3.5 w-3.5" />
-          <span className="text-[13px]">{sortLabels[sort]}</span>
+          <span className="text-[13px] truncate">{sortLabels[sort]}</span>
         </Button>
       </div>
 

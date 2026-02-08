@@ -24,7 +24,7 @@ export function PrintPage() {
 
   if (!allBins) {
     return (
-      <div className="print-hide flex flex-col gap-4 px-[var(--page-px)] pt-6 pb-2">
+      <div className="print-hide flex flex-col gap-4 px-5 pt-6 pb-2">
         <Skeleton className="h-10 w-24" />
         <div className="glass-card rounded-[var(--radius-lg)] p-4 space-y-2">
           {[1, 2, 3].map((i) => (
@@ -60,7 +60,7 @@ export function PrintPage() {
 
   return (
     <>
-      <div className="print-hide flex flex-col gap-4 px-[var(--page-px)] pt-6 pb-2">
+      <div className="print-hide flex flex-col gap-4 px-5 pt-6 pb-2">
         <h1 className="text-[34px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
           Print
         </h1>

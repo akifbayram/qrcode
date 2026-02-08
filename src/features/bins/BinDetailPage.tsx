@@ -30,7 +30,7 @@ export function BinDetailPage() {
 
   if (bin === undefined) {
     return (
-      <div className="flex flex-col gap-4 px-[var(--page-px)] pt-4 pb-2">
+      <div className="flex flex-col gap-4 px-5 pt-4 pb-2">
         <Skeleton className="h-8 w-20" />
         <Skeleton className="h-8 w-3/4" />
         <div className="glass-card rounded-[var(--radius-lg)] p-6">
@@ -91,7 +91,7 @@ export function BinDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-[var(--page-px)] pt-4 pb-2">
+    <div className="flex flex-col gap-4 px-5 pt-4 pb-2">
       {/* Top bar */}
       <div className="flex items-center gap-2">
         <Button

@@ -29,6 +29,7 @@
   --nav-height: 52px;
   --sidebar-width: 260px;
   --page-px: 20px;
+  --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --overlay-backdrop: rgba(0, 0, 0, 0.4);
   --overlay-heavy: rgba(0, 0, 0, 0.7);
@@ -65,11 +66,10 @@
 }
 
 /* ─── Base ─── */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* Note: Tailwind CSS 4 Preflight (in @layer base) already handles
+   * { margin: 0; box-sizing: border-box }. Do NOT add an unlayered
+   * { padding: 0 } — it overrides all Tailwind padding/margin utilities
+   because unlayered styles beat @layer utilities in the CSS cascade. */
 
 html {
   -webkit-tap-highlight-color: transparent;

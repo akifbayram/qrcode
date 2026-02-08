@@ -13,7 +13,7 @@ export function Sidebar({ theme, onToggleTheme }: SidebarProps) {
   const navigate = useNavigate();
 
   return (
-    <aside aria-label="Main navigation" className="hidden lg:flex flex-col w-[var(--sidebar-width)] h-dvh fixed left-0 top-0 print-hide">
+    <aside aria-label="Main navigation" className="hidden lg:flex flex-col w-[260px] h-dvh fixed left-0 top-0 print-hide">
       <div className="flex-1 flex flex-col px-5 pt-6 pb-4 gap-1">
         {/* Brand */}
         <div className="px-3 pt-2 pb-6">

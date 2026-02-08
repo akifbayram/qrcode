@@ -46,11 +46,11 @@ export function AppLayout() {
       </a>
       <Sidebar theme={theme} onToggleTheme={toggleTheme} />
       {/* pb: nav-height(52) + bottom-offset(20) + safe-area + breathing(16) ≈ 88+safe */}
-      <main id="main-content" className="lg:ml-[var(--sidebar-width)] pb-[calc(88px+var(--safe-bottom))] lg:pb-8">
+      <main id="main-content" className="lg:ml-[260px] pt-[var(--safe-top)] pb-[calc(88px+var(--safe-bottom))] lg:pb-8">
         <div className="mx-auto w-full max-w-2xl">
           {/* PWA install banner */}
           {installPrompt && !dismissed && (
-            <div className="mx-[var(--page-px)] mt-4 glass-card rounded-[var(--radius-lg)] px-4 py-3 flex items-center gap-3">
+            <div className="mx-5 mt-4 glass-card rounded-[var(--radius-lg)] px-4 py-3 flex items-center gap-3">
               <Download className="h-5 w-5 text-[var(--accent)] shrink-0" />
               <p className="flex-1 text-[14px] text-[var(--text-primary)]">
                 Install QR Bin for quick access
@@ -72,7 +72,7 @@ export function AppLayout() {
             </div>
           )}
           {!online && (
-            <div className="mx-[var(--page-px)] mt-4 rounded-[var(--radius-lg)] bg-[var(--bg-input)] px-4 py-2.5 text-center text-[13px] text-[var(--text-secondary)]">
+            <div className="mx-5 mt-4 rounded-[var(--radius-lg)] bg-[var(--bg-input)] px-4 py-2.5 text-center text-[13px] text-[var(--text-secondary)]">
               You're offline — changes are saved locally
             </div>
           )}

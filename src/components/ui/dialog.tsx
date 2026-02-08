@@ -114,7 +114,7 @@ function DialogContent({
         className={cn(
           'relative z-[60] w-full sm:max-w-md glass-heavy',
           'rounded-t-[var(--radius-xl)] sm:rounded-[var(--radius-xl)]',
-          'px-6 pt-4 sm:pt-6 mx-0 sm:mx-4 max-h-[85vh] overflow-y-auto',
+          'px-8 pt-5 sm:pt-7 mx-0 sm:mx-4 max-h-[85vh] overflow-y-auto',
           'pb-[calc(24px+var(--safe-bottom))] sm:pb-6',
           className
         )}
