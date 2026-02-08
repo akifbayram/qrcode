@@ -1,6 +1,7 @@
 export interface Bin {
   id: string;
   name: string;
+  location: string;
   items: string[];
   notes: string;
   tags: string[];
@@ -38,10 +39,11 @@ export interface ExportBinV1 {
   updatedAt: string;
 }
 
-/** V2 export format (current: discrete items + notes) */
+/** V2 export format (current: discrete items + notes + optional location) */
 export interface ExportBinV2 {
   id: string;
   name: string;
+  location?: string;
   items: string[];
   notes: string;
   tags: string[];

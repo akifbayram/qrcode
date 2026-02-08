@@ -162,6 +162,7 @@ describe('importData', () => {
     const existingBin = {
       id: 'bin-1',
       name: 'Existing',
+      location: '',
       items: [],
       notes: '',
       tags: [],
@@ -195,6 +196,7 @@ describe('importData', () => {
     await db.bins.add({
       id: 'old-bin',
       name: 'Old',
+      location: '',
       items: [],
       notes: '',
       tags: [],
@@ -265,6 +267,7 @@ describe('importData', () => {
     await db.bins.add({
       id: 'bin-1',
       name: 'Bin',
+      location: '',
       items: [],
       notes: '',
       tags: [],

@@ -25,6 +25,7 @@ export function BinDetailPage() {
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editLocation, setEditLocation] = useState('');
   const [editItems, setEditItems] = useState<string[]>([]);
   const [editNotes, setEditNotes] = useState('');
   const [editTags, setEditTags] = useState<string[]>([]);
@@ -62,6 +63,7 @@ export function BinDetailPage() {
   function startEdit() {
     if (!bin) return;
     setEditName(bin.name);
+    setEditLocation(bin.location);
     setEditItems([...bin.items]);
     setEditNotes(bin.notes);
     setEditTags([...bin.tags]);
@@ -72,6 +74,7 @@ export function BinDetailPage() {
     if (!id || !editName.trim()) return;
     await updateBin(id, {
       name: editName.trim(),
+      location: editLocation.trim(),
       items: editItems,
       notes: editNotes.trim(),
       tags: editTags,
@@ -154,6 +157,15 @@ export function BinDetailPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="edit-location">Location</Label>
+              <Input
+                id="edit-location"
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+                placeholder="e.g., Garage shelf 3"
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Items</Label>
               <ItemsInput items={editItems} onChange={setEditItems} />
             </div>
@@ -196,6 +208,18 @@ export function BinDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Location */}
+          {bin.location && (
+            <Card>
+              <CardContent>
+                <Label>Location</Label>
+                <p className="mt-2 text-[15px] text-[var(--text-primary)] leading-relaxed">
+                  {bin.location}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Items */}
           {bin.items.length > 0 && (

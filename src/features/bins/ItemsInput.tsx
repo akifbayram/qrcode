@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface ItemsInputProps {
@@ -10,11 +10,17 @@ interface ItemsInputProps {
 export function ItemsInput({ items, onChange }: ItemsInputProps) {
   const [input, setInput] = useState('');
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' && input.trim()) {
-      e.preventDefault();
+  function addItem() {
+    if (input.trim()) {
       onChange([...items, input.trim()]);
       setInput('');
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addItem();
     } else if (e.key === 'Backspace' && !input && items.length > 0) {
       onChange(items.slice(0, -1));
     }
@@ -45,13 +51,24 @@ export function ItemsInput({ items, onChange }: ItemsInputProps) {
           ))}
         </ul>
       )}
-      <Input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={items.length === 0 ? 'Add items (press Enter)...' : 'Add another item...'}
-        className="h-7 bg-transparent p-0 text-base focus-visible:ring-0"
-      />
+      <div className="flex items-center gap-1.5">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={items.length === 0 ? 'Add items...' : 'Add another item...'}
+          className="h-7 bg-transparent p-0 text-base focus-visible:ring-0"
+        />
+        <button
+          type="button"
+          onClick={addItem}
+          disabled={!input.trim()}
+          className="shrink-0 rounded-full p-1 text-[var(--accent)] hover:bg-[var(--bg-active)] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          aria-label="Add item"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }

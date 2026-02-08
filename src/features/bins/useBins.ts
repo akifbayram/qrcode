@@ -22,6 +22,7 @@ export function useBinList(searchQuery?: string, sort: SortOption = 'updated') {
       bins = bins.filter(
         (bin) =>
           bin.name.toLowerCase().includes(q) ||
+          bin.location.toLowerCase().includes(q) ||
           bin.items.some((item) => item.toLowerCase().includes(q)) ||
           bin.notes.toLowerCase().includes(q) ||
           bin.tags.some((tag) => tag.toLowerCase().includes(q))
@@ -42,13 +43,15 @@ export async function addBin(
   name: string,
   items: string[] = [],
   notes: string = '',
-  tags: string[] = []
+  tags: string[] = [],
+  location: string = ''
 ): Promise<string> {
   const id = uuidv4();
   const now = new Date();
   await db.bins.add({
     id,
     name,
+    location,
     items,
     notes,
     tags,
@@ -60,7 +63,7 @@ export async function addBin(
 
 export async function updateBin(
   id: string,
-  changes: Partial<Pick<Bin, 'name' | 'items' | 'notes' | 'tags'>>
+  changes: Partial<Pick<Bin, 'name' | 'location' | 'items' | 'notes' | 'tags'>>
 ): Promise<void> {
   await db.bins.update(id, {
     ...changes,

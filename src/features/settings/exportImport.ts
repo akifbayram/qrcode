@@ -58,6 +58,7 @@ export async function exportAllData(): Promise<ExportDataV2> {
     bins: bins.map((b) => ({
       id: b.id,
       name: b.name,
+      location: b.location,
       items: b.items,
       notes: b.notes,
       tags: b.tags,
@@ -193,19 +194,22 @@ export async function importData(
 
       let items: string[];
       let notes: string;
+      let location = '';
       if (data.version === 1) {
         const contents = (b as unknown as { contents: string }).contents;
         items = contents.split('\n').map((s: string) => s.trim()).filter(Boolean);
         notes = '';
       } else {
-        const v2Bin = b as unknown as { items: string[]; notes: string };
+        const v2Bin = b as unknown as { items: string[]; notes: string; location?: string };
         items = v2Bin.items;
         notes = v2Bin.notes;
+        location = v2Bin.location ?? '';
       }
 
       const bin: Bin = {
         id: b.id,
         name: b.name,
+        location,
         items,
         notes,
         tags: b.tags,

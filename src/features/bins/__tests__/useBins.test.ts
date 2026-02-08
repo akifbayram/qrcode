@@ -101,6 +101,7 @@ describe('restoreBin', () => {
     const bin: Bin = {
       id: 'restored-bin',
       name: 'Restored',
+      location: '',
       items: ['restored item'],
       notes: 'restored notes',
       tags: ['restored'],
@@ -137,6 +138,7 @@ describe('restoreBin', () => {
     const bin: Bin = {
       id: 'bin-no-photos',
       name: 'No Photos',
+      location: '',
       items: [],
       notes: '',
       tags: [],

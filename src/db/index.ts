@@ -25,6 +25,14 @@ class BinDatabase extends Dexie {
         delete (bin as Record<string, unknown>).contents;
       });
     });
+    this.version(4).stores({
+      bins: 'id, name, *tags, createdAt, updatedAt',
+      photos: 'id, binId, createdAt',
+    }).upgrade((tx) => {
+      return tx.table('bins').toCollection().modify((bin) => {
+        bin.location = '';
+      });
+    });
   }
 }
 

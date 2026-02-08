@@ -25,6 +25,7 @@ interface BinCreateDialogProps {
 export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDialogProps) {
   const navigate = useNavigate();
   const [name, setName] = useState(prefillName ?? '');
+  const [location, setLocation] = useState('');
   const [items, setItems] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -35,8 +36,9 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
     if (!name.trim()) return;
     setLoading(true);
     try {
-      const id = await addBin(name.trim(), items, notes.trim(), tags);
+      const id = await addBin(name.trim(), items, notes.trim(), tags, location.trim());
       setName('');
+      setLocation('');
       setItems([]);
       setNotes('');
       setTags([]);
@@ -64,6 +66,15 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
               placeholder="e.g., Holiday Decorations"
               required
               autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bin-location">Location</Label>
+            <Input
+              id="bin-location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Garage shelf 3"
             />
           </div>
           <div className="space-y-2">
