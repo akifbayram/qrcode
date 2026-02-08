@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { Html5Qrcode } from 'html5-qrcode';
 
 interface Html5QrcodePluginProps {
+  paused?: boolean;
   onScanSuccess: (decodedText: string) => void;
   onScanFailure?: (error: string) => void;
 }
 
-export function Html5QrcodePlugin({ onScanSuccess, onScanFailure }: Html5QrcodePluginProps) {
+export function Html5QrcodePlugin({ paused, onScanSuccess, onScanFailure }: Html5QrcodePluginProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerId = 'html5-qrcode-scanner';
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,22 @@ export function Html5QrcodePlugin({ onScanSuccess, onScanFailure }: Html5QrcodeP
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const scanner = scannerRef.current;
+    if (!scanner) return;
+
+    try {
+      if (paused && scanner.isScanning) {
+        scanner.pause(true);
+      } else if (!paused && scanner.getState() === 3) {
+        // State 3 = PAUSED in html5-qrcode
+        scanner.resume();
+      }
+    } catch {
+      // Scanner may not be fully initialized yet
+    }
+  }, [paused]);
 
   if (error) {
     return (

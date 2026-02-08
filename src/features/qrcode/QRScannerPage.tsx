@@ -94,19 +94,22 @@ export function QRScannerPage() {
             </div>
           </CardContent>
         </Card>
-      ) : scanning ? (
+      ) : (
         <Card className="overflow-hidden">
           <CardContent className="py-5">
-            <Html5QrcodePlugin onScanSuccess={handleScan} />
-            <p className="mt-5 text-center text-[13px] text-[var(--text-tertiary)]">
-              Point your camera at a bin QR code
-            </p>
+            <Html5QrcodePlugin paused={!scanning} onScanSuccess={handleScan} />
+            {scanning && (
+              <p className="mt-5 text-center text-[13px] text-[var(--text-tertiary)]">
+                Point your camera at a bin QR code
+              </p>
+            )}
+            {!scanning && (
+              <div className="flex items-center justify-center py-8 text-[var(--text-tertiary)]">
+                Redirecting...
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : (
-        <div className="flex items-center justify-center py-20 text-[var(--text-tertiary)]">
-          Redirecting...
-        </div>
       )}
 
       <BinCreateDialog

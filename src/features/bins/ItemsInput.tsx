@@ -50,7 +50,7 @@ export function ItemsInput({ items, onChange }: ItemsInputProps) {
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={items.length === 0 ? 'Add items (press Enter)...' : 'Add another item...'}
-        className="h-7 bg-transparent p-0 text-[15px] focus-visible:ring-0"
+        className="h-7 bg-transparent p-0 text-base focus-visible:ring-0"
       />
     </div>
   );

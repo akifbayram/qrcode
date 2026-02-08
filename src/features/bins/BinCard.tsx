@@ -82,7 +82,7 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
             <Highlight text={bin.name} query={searchQuery} />
           </h3>
           {bin.items.length > 0 && (
-            <p className="mt-1 text-[13px] text-[var(--text-tertiary)] line-clamp-2 leading-relaxed">
+            <p className="mt-1 text-[13px] text-[var(--text-tertiary)] line-clamp-1 leading-relaxed">
               <Highlight text={bin.items.join(', ')} query={searchQuery} />
             </p>
           )}
