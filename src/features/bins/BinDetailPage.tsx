@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Pencil, Trash2, Printer, Save } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Pencil, Trash2, Printer, Save, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,6 +19,7 @@ import { useBin, updateBin, deleteBin, restoreBin } from './useBins';
 import { resolveIcon } from '@/lib/iconMap';
 import { getColorPreset } from '@/lib/colorPalette';
 import { PhotoGallery } from '@/features/photos/PhotoGallery';
+import { cn } from '@/lib/utils';
 import type { Bin } from '@/types';
 
 function formatDate(iso: string): string {
@@ -39,15 +40,27 @@ export function BinDetailPage() {
   const [editIcon, setEditIcon] = useState('');
   const [editColor, setEditColor] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [quickAddValue, setQuickAddValue] = useState('');
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
+  const [qrExpanded, setQrExpanded] = useState(false);
 
   if (isLoading || bin === undefined) {
     return (
       <div className="flex flex-col gap-4 px-5 pt-4 pb-2">
         <Skeleton className="h-8 w-20" />
-        <Skeleton className="h-8 w-3/4" />
-        <div className="glass-card rounded-[var(--radius-lg)] p-6">
-          <Skeleton className="h-40 w-40 mx-auto" />
+        {/* Title + location skeleton */}
+        <div className="space-y-1.5">
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/3" />
         </div>
+        {/* Items card skeleton */}
+        <div className="glass-card rounded-[var(--radius-lg)] p-4 space-y-3">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-10 w-full rounded-[var(--radius-md)]" />
+        </div>
+        {/* Details card skeleton */}
         <div className="glass-card rounded-[var(--radius-lg)] p-4 space-y-3">
           <Skeleton className="h-4 w-1/4" />
           <Skeleton className="h-4 w-full" />
@@ -108,6 +121,23 @@ export function BinDetailPage() {
       },
     });
   }
+
+  async function handleQuickAdd() {
+    const value = quickAddValue.trim();
+    if (!value || !id || !bin) return;
+    setQuickAddSaving(true);
+    try {
+      await updateBin(id, { items: [...bin.items, value] });
+      setQuickAddValue('');
+    } catch {
+      showToast({ message: 'Failed to add item' });
+    } finally {
+      setQuickAddSaving(false);
+    }
+  }
+
+  const hasNotes = !!bin.notes;
+  const hasTags = bin.tags.length > 0;
 
   return (
     <div className="flex flex-col gap-4 px-5 pt-4 pb-2">
@@ -215,41 +245,27 @@ export function BinDetailPage() {
         </Card>
       ) : (
         <>
-          {/* Title */}
-          <div className="flex items-center gap-2.5">
-            {(() => { const Icon = resolveIcon(bin.icon); return <Icon className="h-7 w-7 text-[var(--text-secondary)] shrink-0" />; })()}
-            {bin.color && (() => { const preset = getColorPreset(bin.color); return preset ? <span className="h-3.5 w-3.5 rounded-full shrink-0" style={{ backgroundColor: preset.dot }} /> : null; })()}
-            <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight leading-tight">
-              {bin.name}
-            </h1>
-          </div>
-
-          {/* QR Code */}
-          <Card>
-            <CardContent className="py-6">
-              <div className="flex flex-col items-center">
-                <QRCodeDisplay binId={bin.id} />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Location */}
-          {bin.location && (
-            <Card>
-              <CardContent>
-                <Label>Location</Label>
-                <p className="mt-2 text-[15px] text-[var(--text-primary)] leading-relaxed">
+          {/* Title with location subtitle */}
+          <div className="flex items-start gap-2.5">
+            {(() => { const Icon = resolveIcon(bin.icon); return <Icon className="h-7 w-7 text-[var(--text-secondary)] shrink-0 mt-0.5" />; })()}
+            {bin.color && (() => { const preset = getColorPreset(bin.color); return preset ? <span className="h-3.5 w-3.5 rounded-full shrink-0 mt-2" style={{ backgroundColor: preset.dot }} /> : null; })()}
+            <div className="min-w-0">
+              <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight leading-tight">
+                {bin.name}
+              </h1>
+              {bin.location && (
+                <p className="text-[15px] text-[var(--text-secondary)] mt-0.5 truncate">
                   {bin.location}
                 </p>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </div>
+          </div>
 
-          {/* Items */}
-          {bin.items.length > 0 && (
-            <Card>
-              <CardContent>
-                <Label>Items</Label>
+          {/* Items card — always visible */}
+          <Card>
+            <CardContent>
+              <Label>Items</Label>
+              {bin.items.length > 0 ? (
                 <ul className="mt-2 space-y-1">
                   {bin.items.map((item, i) => (
                     <li key={i} className="flex items-start gap-2 text-[15px] text-[var(--text-primary)] leading-relaxed">
@@ -258,56 +274,105 @@ export function BinDetailPage() {
                     </li>
                   ))}
                 </ul>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Notes */}
-          {bin.notes && (
-            <Card>
-              <CardContent>
-                <Label>Notes</Label>
-                <p className="mt-2 text-[15px] text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
-                  {bin.notes}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Photos */}
-          <PhotoGallery binId={bin.id} />
-
-          {/* Tags */}
-          {bin.tags.length > 0 && (
-            <Card>
-              <CardContent>
-                <Label>Tags</Label>
-                <div className="flex flex-wrap gap-2 mt-2.5">
-                  {bin.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary">{tag}</Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Timestamps */}
-          <Card>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <Label>Created</Label>
-                  <p className="mt-1.5 text-[13px] text-[var(--text-secondary)]">
-                    {formatDate(bin.created_at)}
-                  </p>
-                </div>
-                <div>
-                  <Label>Updated</Label>
-                  <p className="mt-1.5 text-[13px] text-[var(--text-secondary)]">
-                    {formatDate(bin.updated_at)}
-                  </p>
-                </div>
+              ) : (
+                <p className="mt-2 text-[15px] text-[var(--text-tertiary)] italic">No items yet</p>
+              )}
+              {/* Quick-add row */}
+              <div className="flex gap-2 mt-3">
+                <Input
+                  value={quickAddValue}
+                  onChange={(e) => setQuickAddValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleQuickAdd();
+                    }
+                  }}
+                  placeholder="Add item..."
+                  disabled={quickAddSaving}
+                  className="flex-1"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleQuickAdd}
+                  disabled={!quickAddValue.trim() || quickAddSaving}
+                  aria-label="Add item"
+                  className="rounded-full h-10 w-10 shrink-0"
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Details card — Notes, Tags, Photos consolidated */}
+          <Card>
+            <CardContent className="space-y-5">
+              {hasNotes && (
+                <div>
+                  <Label>Notes</Label>
+                  <p className="mt-2 text-[15px] text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                    {bin.notes}
+                  </p>
+                </div>
+              )}
+              {hasTags && (
+                <div>
+                  <Label>Tags</Label>
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    {bin.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <PhotoGallery binId={bin.id} variant="inline" />
+            </CardContent>
+          </Card>
+
+          {/* QR Code & Info — collapsible, collapsed by default */}
+          <Card>
+            <CardContent className="!py-0">
+              <button
+                type="button"
+                onClick={() => setQrExpanded(!qrExpanded)}
+                aria-expanded={qrExpanded}
+                className="flex items-center justify-between w-full py-4 text-left"
+              >
+                <span className="text-[13px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider">
+                  QR Code & Info
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 text-[var(--text-tertiary)] transition-transform duration-200',
+                    qrExpanded && 'rotate-180'
+                  )}
+                />
+              </button>
+              {qrExpanded && (
+                <div className="pb-4 space-y-4">
+                  <div className="flex flex-col items-center">
+                    <QRCodeDisplay binId={bin.id} size={160} />
+                  </div>
+                  <div className="border-t border-[var(--border-subtle)] pt-4">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <Label>Created</Label>
+                        <p className="mt-1.5 text-[13px] text-[var(--text-secondary)]">
+                          {formatDate(bin.created_at)}
+                        </p>
+                      </div>
+                      <div>
+                        <Label>Updated</Label>
+                        <p className="mt-1.5 text-[13px] text-[var(--text-secondary)]">
+                          {formatDate(bin.updated_at)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>
