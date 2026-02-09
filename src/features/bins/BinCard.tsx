@@ -24,6 +24,10 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
   const BinIcon = resolveIcon(bin.icon);
   const colorPreset = getColorPreset(bin.color);
   const colorBg = colorPreset ? (theme === 'dark' ? colorPreset.bgDark : colorPreset.bg) : undefined;
+  // Override muted text/icon color for better contrast on colored backgrounds
+  const mutedColor = colorPreset
+    ? (theme === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.55)')
+    : undefined;
 
   function handleClick() {
     if (selectable) {
@@ -79,18 +83,19 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
                 ? 'bg-[var(--accent)] border-[var(--accent)]'
                 : 'border-[var(--text-tertiary)]'
             )}
+            style={!selected && mutedColor ? { borderColor: mutedColor } : undefined}
           >
             {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
           </div>
         ) : (
-          <BinIcon className="h-5 w-5 mt-0.5 text-[var(--text-tertiary)] shrink-0" />
+          <BinIcon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--text-tertiary)]" style={mutedColor ? { color: mutedColor } : undefined} />
         )}
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-[15px] text-[var(--text-primary)] truncate leading-snug">
             <Highlight text={bin.name} query={searchQuery} />
           </h3>
           {bin.items.length > 0 && (
-            <p className="mt-1 text-[13px] text-[var(--text-tertiary)] line-clamp-1 leading-relaxed">
+            <p className="mt-1 text-[13px] text-[var(--text-tertiary)] line-clamp-1 leading-relaxed" style={mutedColor ? { color: mutedColor } : undefined}>
               <Highlight text={bin.items.join(', ')} query={searchQuery} />
             </p>
           )}

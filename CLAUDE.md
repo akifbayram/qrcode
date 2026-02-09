@@ -75,7 +75,8 @@ nginx.conf          # Reverse proxy config
 - **`addBin()` accepts an options object** (`AddBinOptions`): `{ name, homeId, items?, notes?, tags?, location?, icon?, color? }`. `homeId` is required.
 - **Icon/color fields**: `icon` and `color` are strings on the `Bin` interface. Empty string `''` means default (Package icon, no color). Icon stores PascalCase lucide name (e.g. `'Wrench'`); color stores a preset key (e.g. `'blue'`).
 - **`resolveIcon(name)`** in `lib/iconMap.ts` returns a LucideIcon, falling back to Package.
-- **`getColorPreset(key)`** in `lib/colorPalette.ts` returns `{ bg, bgDark, dot }` for theme-aware tinting.
+- **`getColorPreset(key)`** in `lib/colorPalette.ts` returns `{ bg, bgDark, dot }` for theme-aware tinting. `bg`/`bgDark` are used for BinCard backgrounds; `dot` is unused but retained in the palette.
+- **Colored bin contrast**: BinCard overrides muted text/icon colors on colored bins via inline `style` — `rgba(255,255,255,0.7)` (dark) / `rgba(0,0,0,0.55)` (light) — because `--text-tertiary` (`#8e8e93`) is the same in both modes and has poor contrast against colored backgrounds. The `useTheme()` hook ensures correct recomputation on theme switch.
 - **App settings**: `useAppSettings()` in `lib/appSettings.ts` manages app name/subtitle via `localStorage('qrbin-app-name')`.
 
 ## Server API Routes

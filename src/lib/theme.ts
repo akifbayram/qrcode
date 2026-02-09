@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -12,18 +12,33 @@ function getStoredTheme(): Theme | null {
   return null;
 }
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => getStoredTheme() ?? getSystemTheme());
+let currentTheme: Theme = getStoredTheme() ?? getSystemTheme();
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-    localStorage.setItem('qrbin-theme', theme);
-  }, [theme]);
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+function getSnapshot() {
+  return currentTheme;
+}
+
+function setTheme(theme: Theme) {
+  if (theme === currentTheme) return;
+  currentTheme = theme;
+  const root = document.documentElement;
+  root.classList.remove('light', 'dark');
+  root.classList.add(theme);
+  localStorage.setItem('qrbin-theme', theme);
+  listeners.forEach((l) => l());
+}
+
+export function useTheme() {
+  const theme = useSyncExternalStore(subscribe, getSnapshot);
 
   function toggleTheme() {
-    setThemeState((t) => (t === 'dark' ? 'light' : 'dark'));
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   }
 
   return { theme, toggleTheme };
