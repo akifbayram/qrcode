@@ -60,7 +60,8 @@ export function useBinList(searchQuery?: string, sort: SortOption = 'updated') {
           bin.location.toLowerCase().includes(q) ||
           (Array.isArray(bin.items) ? bin.items : []).some((item: string) => item.toLowerCase().includes(q)) ||
           bin.notes.toLowerCase().includes(q) ||
-          (Array.isArray(bin.tags) ? bin.tags : []).some((tag: string) => tag.toLowerCase().includes(q))
+          (Array.isArray(bin.tags) ? bin.tags : []).some((tag: string) => tag.toLowerCase().includes(q)) ||
+          (bin.short_code && bin.short_code.toLowerCase().includes(q))
       );
     }
 
@@ -181,7 +182,12 @@ export async function restoreBin(bin: Bin): Promise<void> {
       tags: bin.tags,
       icon: bin.icon,
       color: bin.color,
+      shortCode: bin.short_code,
     },
   });
   notifyBinsChanged();
+}
+
+export async function lookupBinByCode(shortCode: string): Promise<Bin> {
+  return apiFetch<Bin>(`/api/bins/lookup/${encodeURIComponent(shortCode)}`);
 }

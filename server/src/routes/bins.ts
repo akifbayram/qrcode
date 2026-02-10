@@ -9,6 +9,16 @@ import { authenticate } from '../middleware/auth.js';
 const router = Router();
 const PHOTO_STORAGE_PATH = process.env.PHOTO_STORAGE_PATH || './uploads';
 
+const SHORT_CODE_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+
+function generateShortCode(): string {
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += SHORT_CODE_CHARSET[Math.floor(Math.random() * SHORT_CODE_CHARSET.length)];
+  }
+  return code;
+}
+
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const storage = multer.diskStorage({
@@ -62,7 +72,7 @@ async function verifyHomeMembership(homeId: string, userId: string): Promise<boo
 // POST /api/bins — create bin
 router.post('/', async (req, res) => {
   try {
-    const { homeId, name, location, items, notes, tags, icon, color, id } = req.body;
+    const { homeId, name, location, items, notes, tags, icon, color, id, shortCode } = req.body;
 
     if (!homeId) {
       res.status(400).json({ error: 'homeId is required' });
@@ -79,35 +89,51 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    const params: unknown[] = [
-      homeId,
-      name.trim(),
-      location || '',
-      items || [],
-      notes || '',
-      tags || [],
-      icon || '',
-      color || '',
-      req.user!.id,
-    ];
+    // Generate short_code with retry on collision
+    const sc = shortCode || generateShortCode();
+    const maxRetries = 10;
 
-    let sql: string;
-    if (id) {
-      // Allow specifying ID for undo-restore
-      sql = `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, created_by)
-             VALUES ($10, $1, $2, $3, $4, $5, $6, $7, $8, $9)
-             RETURNING id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at`;
-      params.push(id);
-    } else {
-      sql = `INSERT INTO bins (home_id, name, location, items, notes, tags, icon, color, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             RETURNING id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at`;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const code = attempt === 0 ? sc : generateShortCode();
+      const params: unknown[] = [
+        homeId,
+        name.trim(),
+        location || '',
+        items || [],
+        notes || '',
+        tags || [],
+        icon || '',
+        color || '',
+        req.user!.id,
+        code,
+      ];
+
+      let sql: string;
+      if (id) {
+        sql = `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, created_by, short_code)
+               VALUES ($11, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               RETURNING id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`;
+        params.push(id);
+      } else {
+        sql = `INSERT INTO bins (home_id, name, location, items, notes, tags, icon, color, created_by, short_code)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               RETURNING id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`;
+      }
+
+      try {
+        const result = await query(sql, params);
+        res.status(201).json(result.rows[0]);
+        return;
+      } catch (err: unknown) {
+        const pgErr = err as { code?: string; constraint?: string };
+        if (pgErr.code === '23505' && pgErr.constraint === 'bins_short_code_key' && attempt < maxRetries) {
+          continue; // retry with new code
+        }
+        throw err;
+      }
     }
 
-    const result = await query(sql, params);
-    const bin = result.rows[0];
-
-    res.status(201).json(bin);
+    res.status(500).json({ error: 'Failed to generate unique short code' });
   } catch (err) {
     console.error('Create bin error:', err);
     res.status(500).json({ error: 'Failed to create bin' });
@@ -130,7 +156,7 @@ router.get('/', async (req, res) => {
     }
 
     const result = await query(
-      `SELECT id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at
+      `SELECT id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at
        FROM bins WHERE home_id = $1 ORDER BY updated_at DESC`,
       [homeId]
     );
@@ -139,6 +165,31 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('List bins error:', err);
     res.status(500).json({ error: 'Failed to list bins' });
+  }
+});
+
+// GET /api/bins/lookup/:shortCode — lookup bin by short code
+router.get('/lookup/:shortCode', async (req, res) => {
+  try {
+    const code = req.params.shortCode.toUpperCase();
+
+    const result = await query(
+      `SELECT b.id, b.home_id, b.name, b.location, b.items, b.notes, b.tags, b.icon, b.color, b.short_code, b.created_by, b.created_at, b.updated_at
+       FROM bins b
+       JOIN home_members hm ON hm.home_id = b.home_id AND hm.user_id = $2
+       WHERE UPPER(b.short_code) = $1`,
+      [code, req.user!.id]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Bin not found' });
+      return;
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Lookup bin error:', err);
+    res.status(500).json({ error: 'Failed to lookup bin' });
   }
 });
 
@@ -154,7 +205,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const result = await query(
-      'SELECT id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at FROM bins WHERE id = $1',
+      'SELECT id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at FROM bins WHERE id = $1',
       [id]
     );
 
@@ -220,7 +271,7 @@ router.put('/:id', async (req, res) => {
 
     const result = await query(
       `UPDATE bins SET ${setClauses.join(', ')} WHERE id = $${paramIdx}
-       RETURNING id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at`,
+       RETURNING id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`,
       params
     );
 
@@ -249,7 +300,7 @@ router.delete('/:id', async (req, res) => {
 
     // Fetch bin before deleting for undo
     const binResult = await query(
-      'SELECT id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at FROM bins WHERE id = $1',
+      'SELECT id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at FROM bins WHERE id = $1',
       [id]
     );
 

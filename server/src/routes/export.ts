@@ -11,6 +11,16 @@ const PHOTO_STORAGE_PATH = process.env.PHOTO_STORAGE_PATH || './uploads';
 
 router.use(authenticate);
 
+const SHORT_CODE_CHARSET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+
+function generateShortCode(): string {
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += SHORT_CODE_CHARSET[Math.floor(Math.random() * SHORT_CODE_CHARSET.length)];
+  }
+  return code;
+}
+
 interface ExportBin {
   id: string;
   name: string;
@@ -20,6 +30,7 @@ interface ExportBin {
   tags: string[];
   icon: string;
   color: string;
+  shortCode?: string;
   createdAt: string;
   updatedAt: string;
   photos: ExportPhoto[];
@@ -79,7 +90,7 @@ router.get('/homes/:id/export', requireHomeMember(), async (req, res) => {
 
     // Get all bins for this home
     const binsResult = await query(
-      'SELECT id, name, location, items, notes, tags, icon, color, created_at, updated_at FROM bins WHERE home_id = $1 ORDER BY updated_at DESC',
+      'SELECT id, name, location, items, notes, tags, icon, color, short_code, created_at, updated_at FROM bins WHERE home_id = $1 ORDER BY updated_at DESC',
       [homeId]
     );
 
@@ -119,6 +130,7 @@ router.get('/homes/:id/export', requireHomeMember(), async (req, res) => {
         tags: bin.tags,
         icon: bin.icon,
         color: bin.color,
+        shortCode: bin.short_code,
         createdAt: bin.created_at.toISOString(),
         updatedAt: bin.updated_at.toISOString(),
         photos: exportPhotos,
@@ -190,24 +202,41 @@ router.post('/homes/:id/import', requireHomeMember(), async (req, res) => {
 
         const binId = bin.id || uuidv4();
 
-        await client.query(
-          `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-          [
-            binId,
-            homeId,
-            bin.name,
-            bin.location || '',
-            bin.items || [],
-            bin.notes || '',
-            bin.tags || [],
-            bin.icon || '',
-            bin.color || '',
-            req.user!.id,
-            bin.createdAt ? new Date(bin.createdAt) : new Date(),
-            bin.updatedAt ? new Date(bin.updatedAt) : new Date(),
-          ]
-        );
+        // Generate short_code with retry on collision
+        let shortCodeInserted = false;
+        for (let attempt = 0; attempt <= 10; attempt++) {
+          const code = attempt === 0 && bin.shortCode ? bin.shortCode : generateShortCode();
+          try {
+            await client.query(
+              `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              [
+                binId,
+                homeId,
+                bin.name,
+                bin.location || '',
+                bin.items || [],
+                bin.notes || '',
+                bin.tags || [],
+                bin.icon || '',
+                bin.color || '',
+                code,
+                req.user!.id,
+                bin.createdAt ? new Date(bin.createdAt) : new Date(),
+                bin.updatedAt ? new Date(bin.updatedAt) : new Date(),
+              ]
+            );
+            shortCodeInserted = true;
+            break;
+          } catch (err: unknown) {
+            const pgErr = err as { code?: string; constraint?: string };
+            if (pgErr.code === '23505' && pgErr.constraint === 'bins_short_code_key' && attempt < 10) {
+              continue;
+            }
+            throw err;
+          }
+        }
+        if (!shortCodeInserted) throw new Error('Failed to generate unique short code');
 
         // Import photos
         if (bin.photos && Array.isArray(bin.photos)) {
@@ -325,24 +354,41 @@ router.post('/import/legacy', async (req, res) => {
         const existing = await client.query('SELECT id FROM bins WHERE id = $1', [binId]);
         if (existing.rows.length > 0) continue;
 
-        await client.query(
-          `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, created_by, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-          [
-            binId,
-            homeId,
-            bin.name,
-            bin.location,
-            bin.items,
-            bin.notes,
-            bin.tags,
-            bin.icon,
-            bin.color,
-            req.user!.id,
-            new Date(bin.createdAt),
-            new Date(bin.updatedAt),
-          ]
-        );
+        // Generate short_code with retry on collision
+        let legacyCodeInserted = false;
+        for (let attempt = 0; attempt <= 10; attempt++) {
+          const code = generateShortCode();
+          try {
+            await client.query(
+              `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              [
+                binId,
+                homeId,
+                bin.name,
+                bin.location,
+                bin.items,
+                bin.notes,
+                bin.tags,
+                bin.icon,
+                bin.color,
+                code,
+                req.user!.id,
+                new Date(bin.createdAt),
+                new Date(bin.updatedAt),
+              ]
+            );
+            legacyCodeInserted = true;
+            break;
+          } catch (err: unknown) {
+            const pgErr = err as { code?: string; constraint?: string };
+            if (pgErr.code === '23505' && pgErr.constraint === 'bins_short_code_key' && attempt < 10) {
+              continue;
+            }
+            throw err;
+          }
+        }
+        if (!legacyCodeInserted) throw new Error('Failed to generate unique short code');
 
         // Import photos
         for (const photo of bin.photos) {

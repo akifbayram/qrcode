@@ -1,11 +1,14 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ScanLine, AlertCircle, RotateCcw, Plus } from 'lucide-react';
+import { ScanLine, AlertCircle, RotateCcw, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Html5QrcodePlugin } from './Html5QrcodePlugin';
 import { apiFetch } from '@/lib/api';
 import { haptic } from '@/lib/utils';
+import { lookupBinByCode } from '@/features/bins/useBins';
 import { BinCreateDialog } from '@/features/bins/BinCreateDialog';
 
 const BIN_URL_REGEX = /(?:#\/bin\/|\/bin\/)([a-f0-9-]{36})/i;
@@ -16,6 +19,25 @@ export function QRScannerPage() {
   const [scanning, setScanning] = useState(true);
   const [unknownId, setUnknownId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [manualCode, setManualCode] = useState('');
+  const [manualError, setManualError] = useState('');
+  const [manualLoading, setManualLoading] = useState(false);
+
+  async function handleManualLookup() {
+    const code = manualCode.trim().toUpperCase();
+    if (!code) return;
+    setManualError('');
+    setManualLoading(true);
+    try {
+      const bin = await lookupBinByCode(code);
+      haptic();
+      navigate(`/bin/${bin.id}`);
+    } catch {
+      setManualError('No bin found with that code');
+    } finally {
+      setManualLoading(false);
+    }
+  }
 
   const handleScan = useCallback(
     async (decodedText: string) => {
@@ -111,6 +133,45 @@ export function QRScannerPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Manual lookup by short code */}
+      <Card>
+        <CardContent>
+          <Label className="text-[15px] font-semibold text-[var(--text-primary)] normal-case tracking-normal mb-3 block">
+            Manual Lookup
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              value={manualCode}
+              onChange={(e) => {
+                setManualCode(e.target.value.toUpperCase());
+                setManualError('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleManualLookup();
+                }
+              }}
+              placeholder="Enter bin code"
+              maxLength={6}
+              disabled={manualLoading}
+              className="flex-1 font-mono uppercase tracking-widest"
+            />
+            <Button
+              onClick={handleManualLookup}
+              disabled={!manualCode.trim() || manualLoading}
+              className="rounded-[var(--radius-md)] shrink-0"
+            >
+              <Search className="h-4 w-4 mr-1.5" />
+              Look Up
+            </Button>
+          </div>
+          {manualError && (
+            <p className="mt-2 text-[13px] text-[var(--destructive)]">{manualError}</p>
+          )}
+        </CardContent>
+      </Card>
 
       <BinCreateDialog
         open={createOpen}

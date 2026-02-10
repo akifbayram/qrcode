@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react';
 import { batchGenerateQRDataURLs } from '@/lib/qr';
 import type { Bin } from '@/types';
 import { LabelCell } from './LabelCell';
+import type { LabelFormat } from './labelFormats';
+import { getLabelFormat, DEFAULT_LABEL_FORMAT } from './labelFormats';
 
 interface LabelSheetProps {
   bins: Bin[];
+  format?: LabelFormat;
+  showColorSwatch?: boolean;
 }
 
-export function LabelSheet({ bins }: LabelSheetProps) {
+export function LabelSheet({ bins, format, showColorSwatch }: LabelSheetProps) {
+  const labelFormat = format ?? getLabelFormat(DEFAULT_LABEL_FORMAT);
+  const qrPixelSize = Math.round(parseFloat(labelFormat.qrSize) * 150);
   const [qrMap, setQrMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +27,7 @@ export function LabelSheet({ bins }: LabelSheetProps) {
     setLoading(true);
 
     const binIds = bins.map((b) => b.id);
-    batchGenerateQRDataURLs(binIds, 150).then((result) => {
+    batchGenerateQRDataURLs(binIds, qrPixelSize).then((result) => {
       if (!cancelled) {
         setQrMap(result);
         setLoading(false);
@@ -31,7 +37,7 @@ export function LabelSheet({ bins }: LabelSheetProps) {
     return () => {
       cancelled = true;
     };
-  }, [bins]);
+  }, [bins, qrPixelSize]);
 
   if (loading) {
     return (
@@ -42,9 +48,25 @@ export function LabelSheet({ bins }: LabelSheetProps) {
   }
 
   return (
-    <div className="label-sheet">
+    <div
+      className="label-sheet"
+      style={{
+        gridTemplateColumns: `repeat(${labelFormat.columns}, ${labelFormat.cellWidth})`,
+        gridAutoRows: labelFormat.cellHeight,
+        paddingTop: labelFormat.pageMarginTop,
+        paddingBottom: labelFormat.pageMarginBottom,
+        paddingLeft: labelFormat.pageMarginLeft,
+        paddingRight: labelFormat.pageMarginRight,
+      }}
+    >
       {bins.map((bin) => (
-        <LabelCell key={bin.id} bin={bin} qrDataUrl={qrMap.get(bin.id) ?? ''} />
+        <LabelCell
+          key={bin.id}
+          bin={bin}
+          qrDataUrl={qrMap.get(bin.id) ?? ''}
+          format={labelFormat}
+          showColorSwatch={showColorSwatch}
+        />
       ))}
     </div>
   );

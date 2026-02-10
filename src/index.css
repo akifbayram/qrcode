@@ -110,46 +110,44 @@ body {
   box-shadow: var(--shadow-glass);
 }
 
-/* ─── Print: Avery 5160 ─── */
+/* ─── Print Labels ─── */
 .print-show {
   display: none;
 }
 
 .label-sheet {
   display: grid;
-  grid-template-columns: repeat(3, 2.625in);
-  grid-auto-rows: 1in;
   gap: 0;
   color: black;
 }
 
 .label-cell {
-  width: 2.625in;
-  height: 1in;
-  padding: 2pt 4pt;
   box-sizing: border-box;
   overflow: hidden;
 }
 
-.label-qr {
-  width: 0.75in;
-  height: 0.75in;
-}
-
 .label-name {
-  font-size: 9pt;
   line-height: 1.2;
 }
 
 .label-contents {
-  font-size: 7pt;
   line-height: 1.2;
+}
+
+.label-code {
+  line-height: 1.1;
+  letter-spacing: 0.05em;
+}
+
+.color-swatch-print {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
 
 @media print {
   @page {
     size: letter;
-    margin: 0.5in 0.1875in;
+    margin: 0;
   }
 
   body {

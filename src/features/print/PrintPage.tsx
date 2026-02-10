@@ -4,15 +4,21 @@ import { Printer, CheckCircle2, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBinList } from '@/features/bins/useBins';
 import { LabelSheet } from './LabelSheet';
+import { LABEL_FORMATS, getLabelFormat, DEFAULT_LABEL_FORMAT } from './labelFormats';
 import type { Bin } from '@/types';
+
+const FORMAT_STORAGE_KEY = 'qrbin-label-format';
 
 export function PrintPage() {
   const [searchParams] = useSearchParams();
   const { bins: allBins, isLoading } = useBinList(undefined, 'name');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [formatKey, setFormatKey] = useState(() => localStorage.getItem(FORMAT_STORAGE_KEY) || DEFAULT_LABEL_FORMAT);
+  const [showColorSwatch, setShowColorSwatch] = useState(false);
 
   useEffect(() => {
     const idsParam = searchParams.get('ids');
@@ -20,6 +26,11 @@ export function PrintPage() {
       setSelectedIds(new Set(idsParam.split(',')));
     }
   }, [searchParams]);
+
+  function handleFormatChange(key: string) {
+    setFormatKey(key);
+    localStorage.setItem(FORMAT_STORAGE_KEY, key);
+  }
 
   if (isLoading) {
     return (
@@ -38,6 +49,7 @@ export function PrintPage() {
   }
 
   const selectedBins: Bin[] = allBins.filter((b) => selectedIds.has(b.id));
+  const labelFormat = getLabelFormat(formatKey);
 
   function toggleBin(id: string) {
     setSelectedIds((prev) => {
@@ -115,6 +127,43 @@ export function PrintPage() {
           </CardContent>
         </Card>
 
+        {/* Label Format */}
+        <Card>
+          <CardContent>
+            <Label className="text-[15px] font-semibold text-[var(--text-primary)] normal-case tracking-normal mb-3 block">Label Format</Label>
+            <div className="space-y-1">
+              {LABEL_FORMATS.map((fmt) => (
+                <button
+                  key={fmt.key}
+                  className="flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 w-full text-left hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)] transition-colors"
+                  onClick={() => handleFormatChange(fmt.key)}
+                >
+                  {formatKey === fmt.key ? (
+                    <CheckCircle2 className="h-[20px] w-[20px] text-[var(--accent)] shrink-0" />
+                  ) : (
+                    <Circle className="h-[20px] w-[20px] text-[var(--text-tertiary)] shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <span className="text-[15px] text-[var(--text-primary)]">{fmt.name}</span>
+                    <span className="text-[13px] text-[var(--text-tertiary)] ml-2">
+                      {fmt.columns > 1 ? `${fmt.columns}×${fmt.key === 'avery-5167' ? '20' : fmt.key === 'avery-5160' ? '10' : '5'} per page` : 'single label'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+              <label className="flex items-center gap-3 px-3 py-1 cursor-pointer">
+                <Checkbox
+                  checked={showColorSwatch}
+                  onCheckedChange={(checked) => setShowColorSwatch(checked)}
+                />
+                <span className="text-[15px] text-[var(--text-primary)]">Show color swatches</span>
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+
         {selectedBins.length > 0 && (
           <>
             <Button
@@ -129,7 +178,7 @@ export function PrintPage() {
               <CardContent>
                 <Label className="text-[15px] font-semibold text-[var(--text-primary)] normal-case tracking-normal mb-3 block">Preview</Label>
                 <div className="bg-white rounded-[var(--radius-md)] p-4 overflow-auto dark:border dark:border-[var(--border-subtle)]">
-                  <LabelSheet bins={selectedBins} />
+                  <LabelSheet bins={selectedBins} format={labelFormat} showColorSwatch={showColorSwatch} />
                 </div>
               </CardContent>
             </Card>
@@ -138,7 +187,7 @@ export function PrintPage() {
       </div>
 
       <div className="print-show">
-        <LabelSheet bins={selectedBins} />
+        <LabelSheet bins={selectedBins} format={labelFormat} showColorSwatch={showColorSwatch} />
       </div>
     </>
   );

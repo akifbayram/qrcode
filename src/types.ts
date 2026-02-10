@@ -38,6 +38,7 @@ export interface Bin {
   tags: string[];
   icon: string;
   color: string;
+  short_code: string;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -85,6 +86,7 @@ export interface ExportBinV2 {
   tags: string[];
   icon?: string;
   color?: string;
+  shortCode?: string;
   createdAt: string;
   updatedAt: string;
   photos?: ExportBinPhoto[];

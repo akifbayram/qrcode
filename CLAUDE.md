@@ -40,7 +40,7 @@ src/
     photos/         # PhotoGallery, PhotoLightbox, usePhotos, compressImage
     profile/        # ProfilePage (avatar, display name, email, password change)
     qrcode/         # QRScannerPage, QRCodeDisplay, Html5QrcodePlugin
-    print/          # PrintPage, LabelSheet, LabelCell
+    print/          # PrintPage, LabelSheet, LabelCell, labelFormats
     settings/       # SettingsPage, exportImport
     layout/         # AppLayout, Sidebar, BottomNav
   lib/              # Shared utilities (utils.ts, theme.ts, api.ts, auth.tsx, electric.ts, navItems.ts, constants.ts, iconMap.ts, colorPalette.ts, appSettings.ts)
@@ -73,7 +73,8 @@ nginx.conf          # Reverse proxy config
 - **Responsive**: mobile-first. Bottom nav on mobile (`lg:hidden`), sidebar on desktop (`hidden lg:flex`). Breakpoint is `lg` (1024px).
 - **Lazy loading**: Scanner, Print, Settings, Auth, Homes, and Profile pages are `React.lazy` with `<Suspense>`.
 - **`cn()` helper** (clsx + tailwind-merge) for conditional class composition.
-- **`addBin()` accepts an options object** (`AddBinOptions`): `{ name, homeId, items?, notes?, tags?, location?, icon?, color? }`. `homeId` is required.
+- **`addBin()` accepts an options object** (`AddBinOptions`): `{ name, homeId, items?, notes?, tags?, location?, icon?, color?, shortCode? }`. `homeId` is required.
+- **Short codes**: `Bin` has a `short_code` field — a 6-character alphanumeric code (charset excludes ambiguous chars like 0/O, 1/l) auto-generated on creation. Unique constraint in DB; server retries on collision. Used for manual bin lookup via `GET /api/bins/lookup/:shortCode`. `lookupBinByCode(code)` in `useBins.ts` wraps the API call. QR scanner page includes a manual lookup input.
 - **Icon/color fields**: `icon` and `color` are strings on the `Bin` interface. Empty string `''` means default (Package icon, no color). Icon stores PascalCase lucide name (e.g. `'Wrench'`); color stores a preset key (e.g. `'blue'`).
 - **`resolveIcon(name)`** in `lib/iconMap.ts` returns a LucideIcon, falling back to Package.
 - **`getColorPreset(key)`** in `lib/colorPalette.ts` returns `{ bg, bgDark, dot }` for theme-aware tinting. `bg`/`bgDark` are used for BinCard backgrounds; `dot` is unused but retained in the palette.
@@ -86,7 +87,7 @@ nginx.conf          # Reverse proxy config
 
 - **Auth**: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `PUT /api/auth/profile`, `PUT /api/auth/password`, `POST /api/auth/avatar`, `DELETE /api/auth/avatar`, `GET /api/auth/avatar/:userId`
 - **Homes**: `GET /api/homes`, `POST /api/homes`, `PUT /api/homes/:id`, `DELETE /api/homes/:id`, `POST /api/homes/join`, `DELETE /api/homes/:id/members/:userId`, `POST /api/homes/:id/regenerate-invite`
-- **Bins**: `POST /api/bins`, `GET /api/bins/:id`, `PUT /api/bins/:id`, `DELETE /api/bins/:id`, `PUT /api/bins/:id/add-tags`, `POST /api/bins/:id/photos`
+- **Bins**: `POST /api/bins`, `GET /api/bins`, `GET /api/bins/lookup/:shortCode`, `GET /api/bins/:id`, `PUT /api/bins/:id`, `DELETE /api/bins/:id`, `PUT /api/bins/:id/add-tags`, `POST /api/bins/:id/photos`
 - **Photos**: `GET /api/photos/:id/file`, `DELETE /api/photos/:id`
 - **Shapes** (Electric proxy): `GET /api/shapes/bins?home_id=X`, `GET /api/shapes/photos?home_id=X`, `GET /api/shapes/homes`, `GET /api/shapes/home-members?home_id=X`
 - **Export/Import**: `GET /api/homes/:id/export`, `POST /api/homes/:id/import`, `POST /api/import/legacy`
@@ -96,7 +97,8 @@ nginx.conf          # Reverse proxy config
 - **No shadcn CLI** — do not run `npx shadcn` commands. All UI components are custom.
 - **Theme**: stored in `localStorage('qrbin-theme')`, applied via `<html class="dark|light">` before first paint (inline script in `index.html`). The `useTheme()` hook in `lib/theme.ts` is the single source of truth at runtime.
 - **ISO date strings**: ElectricSQL returns dates as ISO strings. All date fields on Bin/Photo/Home are `string`, not `Date`.
-- **Export backward compatibility**: `ExportBinV2` has optional `icon?`, `color?` fields. Import defaults missing fields to `''`. Old backups without these fields import cleanly.
+- **Export backward compatibility**: `ExportBinV2` has optional `icon?`, `color?`, `shortCode?` fields. Import defaults missing fields to `''` and auto-generates short codes. Old backups import cleanly.
+- **Print label formats**: `labelFormats.ts` defines `LabelFormat` configs (Avery 5160, 5163, 5167, generic 2"x1"). Selected format persisted in `localStorage('qrbin-label-format')`. Labels show bin name, location, short code, and optional color swatch (`print-color-adjust: exact` for printing).
 - **`html5-qrcode` is ~330KB gzipped** — always dynamic-import the scanner page; never import statically.
 - **Photos served via API**: `getPhotoUrl(id)` returns `/api/photos/${id}/file`. No Blob/ObjectURL management needed.
 - **BrowserRouter** — path-based URLs (e.g. `/bin/:id`). QR scanner regex handles both old hash (`#/bin/`) and new path (`/bin/`) URLs.
