@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sun, Moon, LogOut } from 'lucide-react';
+import { Sun, Moon, LogOut, Tags, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navItems } from '@/lib/navItems';
 import { useAppSettings } from '@/lib/appSettings';
@@ -58,6 +58,22 @@ export function Sidebar({ theme, onToggleTheme }: SidebarProps) {
             </button>
           );
         })}
+
+        {/* Tags — desktop sidebar only */}
+        <button
+          onClick={() => navigate('/tags')}
+          aria-label="Tags"
+          aria-current={location.pathname === '/tags' ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
+            location.pathname === '/tags'
+              ? 'glass-card text-[var(--text-primary)]'
+              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
+          )}
+        >
+          <Tags className="h-5 w-5" />
+          Tags
+        </button>
       </div>
 
       {/* Bottom section: user info + theme toggle */}
@@ -84,6 +100,20 @@ export function Sidebar({ theme, onToggleTheme }: SidebarProps) {
         >
           {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+        </button>
+        <button
+          onClick={() => navigate('/settings')}
+          aria-label="Settings"
+          aria-current={location.pathname === '/settings' ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
+            location.pathname === '/settings'
+              ? 'glass-card text-[var(--text-primary)]'
+              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
+          )}
+        >
+          <Settings className="h-5 w-5" />
+          Settings
         </button>
         <button
           onClick={logout}

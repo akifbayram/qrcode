@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { navItems } from '@/lib/navItems';
+import { navItems, settingsNavItem } from '@/lib/navItems';
 
 export function BottomNav() {
   const location = useLocation();
@@ -9,7 +9,7 @@ export function BottomNav() {
   return (
     <nav aria-label="Main navigation" className="fixed bottom-[calc(12px+var(--safe-bottom))] left-1/2 -translate-x-1/2 z-40 lg:hidden print-hide">
       <div className="glass-nav rounded-[var(--radius-full)] flex items-center gap-1 px-1.5 h-[var(--nav-height)]">
-        {navItems.map(({ path, label, icon: Icon }) => {
+        {[...navItems, settingsNavItem].map(({ path, label, icon: Icon }) => {
           const isActive =
             path === '/'
               ? location.pathname === '/' || location.pathname.startsWith('/bin/')
