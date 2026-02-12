@@ -18,12 +18,19 @@ declare global {
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
+  const queryToken = req.query.token as string | undefined;
+
+  let token: string | undefined;
+  if (header?.startsWith('Bearer ')) {
+    token = header.slice(7);
+  } else if (queryToken) {
+    token = queryToken;
+  }
+
+  if (!token) {
     res.status(401).json({ error: 'No token provided' });
     return;
   }
-
-  const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
     req.user = { id: payload.id, username: payload.username };

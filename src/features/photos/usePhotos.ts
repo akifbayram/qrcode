@@ -57,7 +57,8 @@ export function usePhotos(binId: string | undefined) {
 }
 
 export function getPhotoUrl(photoId: string): string {
-  return `/api/photos/${photoId}/file`;
+  const token = localStorage.getItem('sanduk-token');
+  return `/api/photos/${photoId}/file${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 }
 
 export async function addPhoto(binId: string, file: File): Promise<string> {
