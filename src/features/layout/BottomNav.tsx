@@ -10,10 +10,7 @@ export function BottomNav() {
     <nav aria-label="Main navigation" className="fixed bottom-[calc(12px+var(--safe-bottom))] left-1/2 -translate-x-1/2 z-40 lg:hidden print-hide">
       <div className="glass-nav rounded-[var(--radius-full)] flex items-center gap-1 px-1.5 h-[var(--nav-height)]">
         {[...navItems, settingsNavItem].map(({ path, label, icon: Icon }) => {
-          const isActive =
-            path === '/'
-              ? location.pathname === '/' || location.pathname.startsWith('/bin/')
-              : location.pathname === path;
+          const isActive = location.pathname === path;
 
           return (
             <button

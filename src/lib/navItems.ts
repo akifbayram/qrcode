@@ -1,7 +1,7 @@
-import { Package, ScanLine, Printer, Settings, Home } from 'lucide-react';
+import { LayoutDashboard, ScanLine, Printer, Settings, Home } from 'lucide-react';
 
 export const navItems = [
-  { path: '/', label: 'Bins', icon: Package },
+  { path: '/', label: 'Home', icon: LayoutDashboard },
   { path: '/scan', label: 'Scan', icon: ScanLine },
   { path: '/homes', label: 'Homes', icon: Home },
   { path: '/print', label: 'Print', icon: Printer },

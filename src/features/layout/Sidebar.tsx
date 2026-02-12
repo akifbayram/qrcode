@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sun, Moon, LogOut, Tags, Settings } from 'lucide-react';
+import { Sun, Moon, LogOut, Tags, Settings, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navItems } from '@/lib/navItems';
 import { useAppSettings } from '@/lib/appSettings';
@@ -35,10 +35,7 @@ export function Sidebar({ theme, onToggleTheme }: SidebarProps) {
 
         {/* Nav items */}
         {navItems.map(({ path, label, icon: Icon }) => {
-          const isActive =
-            path === '/'
-              ? location.pathname === '/' || location.pathname.startsWith('/bin/')
-              : location.pathname === path;
+          const isActive = location.pathname === path;
 
           return (
             <button
@@ -58,6 +55,22 @@ export function Sidebar({ theme, onToggleTheme }: SidebarProps) {
             </button>
           );
         })}
+
+        {/* Bins — direct access from sidebar */}
+        <button
+          onClick={() => navigate('/bins')}
+          aria-label="Bins"
+          aria-current={location.pathname === '/bins' || location.pathname.startsWith('/bin/') ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
+            location.pathname === '/bins' || location.pathname.startsWith('/bin/')
+              ? 'glass-card text-[var(--text-primary)]'
+              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
+          )}
+        >
+          <Package className="h-5 w-5" />
+          Bins
+        </button>
 
         {/* Tags — desktop sidebar only */}
         <button

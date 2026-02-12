@@ -41,6 +41,10 @@ const TagsPage = React.lazy(() =>
   import('@/features/tags/TagsPage').then((m) => ({ default: m.TagsPage }))
 );
 
+const DashboardPage = React.lazy(() =>
+  import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage }))
+);
+
 function LoadingFallback() {
   return (
     <div className="flex items-center justify-center py-20">
@@ -122,7 +126,7 @@ function NotFoundPage() {
       <p className="text-[17px] font-semibold text-[var(--text-secondary)]">Page not found</p>
       <Button variant="outline" onClick={() => navigate('/')} className="rounded-[var(--radius-full)]">
         <ChevronLeft className="h-4 w-4 mr-1" />
-        Back to bins
+        Back to home
       </Button>
     </div>
   );
@@ -162,7 +166,15 @@ export default function App() {
                   </AuthGuard>
                 }
               >
-                <Route path="/" element={<BinListPage />} />
+                <Route
+                  path="/"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <DashboardPage />
+                    </Suspense>
+                  }
+                />
+                <Route path="/bins" element={<BinListPage />} />
                 <Route path="/bin/:id" element={<BinDetailPage />} />
                 <Route
                   path="/scan"

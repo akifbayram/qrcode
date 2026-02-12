@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Home, Package, X, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,8 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
   const tagInputRef = useRef<HTMLInputElement>(null);
   // Loading
   const [loading, setLoading] = useState(false);
+  // Success animation after first bin creation
+  const [showSuccess, setShowSuccess] = useState(false);
   // Animation key to retrigger on step change
   const [animKey, setAnimKey] = useState(0);
 
@@ -61,6 +63,11 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
     }
   }
 
+  const dismissSuccess = useCallback(() => {
+    setShowSuccess(false);
+    complete();
+  }, [complete]);
+
   async function handleCreateBin() {
     if (!binName.trim() || !homeId) return;
     setLoading(true);
@@ -72,7 +79,7 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
         color: binColor || undefined,
         tags: binTags.length > 0 ? binTags : undefined,
       });
-      complete();
+      setShowSuccess(true);
     } catch (err) {
       showToast({ message: err instanceof Error ? err.message : 'Failed to create bin' });
     } finally {
@@ -94,6 +101,10 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
     } finally {
       setLoading(false);
     }
+  }
+
+  if (showSuccess) {
+    return <BinSuccessOverlay onDismiss={dismissSuccess} />;
   }
 
   return (
@@ -266,6 +277,50 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
         </div>
 
       </div>
+    </div>
+  );
+}
+
+function BinSuccessOverlay({ onDismiss }: { onDismiss: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 2800);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-[var(--overlay-backdrop)] backdrop-blur-md scan-success-enter"
+      onClick={onDismiss}
+    >
+      {/* Expanding rings */}
+      <div className="relative flex items-center justify-center">
+        <div className="absolute h-24 w-24 rounded-full border-2 border-[var(--accent)] scan-ring scan-ring-1" />
+        <div className="absolute h-24 w-24 rounded-full border-2 border-[var(--accent)] scan-ring scan-ring-2" />
+        <div className="absolute h-24 w-24 rounded-full border-2 border-[var(--accent)] scan-ring scan-ring-3" />
+
+        {/* Checkmark circle */}
+        <div className="relative h-24 w-24 rounded-full bg-[var(--accent)] flex items-center justify-center scan-check-scale">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-12 w-12 scan-check-draw"
+          >
+            <polyline points="4 12 10 18 20 6" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Text */}
+      <p className="mt-8 text-[22px] font-bold text-[var(--text-primary)] scan-text-fade">
+        First bin created!
+      </p>
+      <p className="mt-2 text-[14px] text-[var(--text-tertiary)] scan-text-fade-delay">
+        You're all set
+      </p>
     </div>
   );
 }
