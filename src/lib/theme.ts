@@ -1,45 +1,79 @@
 import { useSyncExternalStore } from 'react';
 
-type Theme = 'light' | 'dark';
+export type ThemePreference = 'light' | 'dark' | 'auto';
+export type ResolvedTheme = 'light' | 'dark';
 
-function getSystemTheme(): Theme {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+const STORAGE_KEY = 'sanduk-theme';
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+
+function resolveFromSystem(): ResolvedTheme {
+  return mq.matches ? 'dark' : 'light';
 }
 
-function getStoredTheme(): Theme | null {
-  const stored = localStorage.getItem('sanduk-theme');
-  if (stored === 'light' || stored === 'dark') return stored;
-  return null;
+function getStoredPreference(): ThemePreference {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark' || stored === 'auto') return stored;
+  return 'auto';
 }
 
-let currentTheme: Theme = getStoredTheme() ?? getSystemTheme();
+function resolve(pref: ThemePreference): ResolvedTheme {
+  return pref === 'auto' ? resolveFromSystem() : pref;
+}
+
+function applyToDOM(resolved: ResolvedTheme) {
+  const root = document.documentElement;
+  root.classList.remove('light', 'dark');
+  root.classList.add(resolved);
+}
+
+let currentPreference: ThemePreference = getStoredPreference();
+let currentTheme: ResolvedTheme = resolve(currentPreference);
 const listeners = new Set<() => void>();
+
+function notify() {
+  listeners.forEach((l) => l());
+}
+
+// Track system theme changes for auto mode
+mq.addEventListener('change', () => {
+  if (currentPreference !== 'auto') return;
+  currentTheme = resolveFromSystem();
+  applyToDOM(currentTheme);
+  notify();
+});
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
 }
 
-function getSnapshot() {
+function getThemeSnapshot() {
   return currentTheme;
 }
 
-function setTheme(theme: Theme) {
-  if (theme === currentTheme) return;
-  currentTheme = theme;
-  const root = document.documentElement;
-  root.classList.remove('light', 'dark');
-  root.classList.add(theme);
-  localStorage.setItem('sanduk-theme', theme);
-  listeners.forEach((l) => l());
+function getPrefSnapshot() {
+  return currentPreference;
+}
+
+function setThemePreference(pref: ThemePreference) {
+  if (pref === currentPreference) return;
+  currentPreference = pref;
+  currentTheme = resolve(pref);
+  applyToDOM(currentTheme);
+  localStorage.setItem(STORAGE_KEY, pref);
+  notify();
 }
 
 export function useTheme() {
-  const theme = useSyncExternalStore(subscribe, getSnapshot);
+  const theme = useSyncExternalStore(subscribe, getThemeSnapshot);
+  const preference = useSyncExternalStore(subscribe, getPrefSnapshot);
 
-  function toggleTheme() {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  }
+  return { theme, preference, setThemePreference };
+}
 
-  return { theme, toggleTheme };
+/** Cycle through Light → Dark → Auto for compact toggle buttons */
+export function cycleThemePreference(current: ThemePreference): ThemePreference {
+  if (current === 'light') return 'dark';
+  if (current === 'dark') return 'auto';
+  return 'light';
 }

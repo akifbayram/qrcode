@@ -18,7 +18,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function AppLayout() {
-  const { theme, toggleTheme } = useTheme();
+  const { preference, setThemePreference } = useTheme();
   const online = useOnlineStatus();
   const { settings } = useAppSettings();
   const { activeLocationId, setActiveLocationId } = useAuth();
@@ -78,7 +78,7 @@ export function AppLayout() {
       >
         Skip to main content
       </a>
-      <Sidebar theme={theme} onToggleTheme={toggleTheme} />
+      <Sidebar preference={preference} onSetThemePreference={setThemePreference} />
       {/* pb: nav-height(52) + bottom-offset(20) + safe-area + breathing(16) ≈ 88+safe */}
       <main id="main-content" className="lg:ml-[260px] pt-[var(--safe-top)] pb-[calc(88px+var(--safe-bottom))] lg:pb-8">
         <div className="mx-auto w-full max-w-2xl">

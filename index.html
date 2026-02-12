@@ -15,7 +15,7 @@
       // Apply stored theme before first paint to prevent flash
       (function() {
         var t = localStorage.getItem('sanduk-theme');
-        if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.className = t;
       })();
     </script>

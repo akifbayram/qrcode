@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2 } from 'lucide-react';
+import { Sun, Moon, Monitor, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -34,7 +34,7 @@ import { AiSettingsSection } from '@/features/ai/AiSettingsSection';
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
+  const { preference, setThemePreference } = useTheme();
   const { settings, updateSettings, resetSettings } = useAppSettings();
   const { user, activeLocationId, setActiveLocationId, logout, deleteAccount } = useAuth();
   const { showToast } = useToast();
@@ -313,13 +313,26 @@ export function SettingsPage() {
       <Card>
         <CardContent>
           <Label>Appearance</Label>
-          <button
-            onClick={toggleTheme}
-            className="flex items-center gap-3 w-full mt-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-          >
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          </button>
+          <div className="flex mt-3 rounded-[var(--radius-sm)] bg-[var(--bg-input)] p-1 gap-1">
+            {([
+              { value: 'light' as const, icon: Sun, label: 'Light' },
+              { value: 'dark' as const, icon: Moon, label: 'Dark' },
+              { value: 'auto' as const, icon: Monitor, label: 'Auto' },
+            ]).map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                onClick={() => setThemePreference(value)}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-[var(--radius-xs)] text-[14px] font-medium transition-colors ${
+                  preference === value
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-sm'
+                    : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

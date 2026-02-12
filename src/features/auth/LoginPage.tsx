@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { LogIn, Sun, Moon, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,12 +8,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import { useAppSettings } from '@/lib/appSettings';
+import { useTheme, cycleThemePreference } from '@/lib/theme';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { showToast } = useToast();
   const { settings } = useAppSettings();
+  const { preference, setThemePreference } = useTheme();
+  const ThemeIcon = preference === 'light' ? Sun : preference === 'dark' ? Moon : Monitor;
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +38,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center px-6 bg-[var(--bg-base)]">
+    <div className="min-h-dvh flex flex-col items-center justify-center px-6 bg-[var(--bg-base)] relative">
+      <button
+        onClick={() => setThemePreference(cycleThemePreference(preference))}
+        aria-label={`Theme: ${preference}`}
+        className="absolute top-4 right-4 p-2.5 rounded-[var(--radius-sm)] text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] transition-colors"
+      >
+        <ThemeIcon className="h-5 w-5" />
+      </button>
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">
