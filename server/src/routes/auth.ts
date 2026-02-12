@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -69,18 +68,6 @@ router.post('/register', async (req, res) => {
     const user = result.rows[0];
     const token = signToken({ id: user.id, username: user.username });
 
-    // Auto-create default home for the new user
-    const inviteCode = crypto.randomBytes(4).toString('hex');
-    const homeResult = await query(
-      'INSERT INTO homes (name, created_by, invite_code) VALUES ($1, $2, $3) RETURNING id',
-      ['My Home', user.id, inviteCode]
-    );
-    const homeId = homeResult.rows[0].id;
-    await query(
-      'INSERT INTO home_members (home_id, user_id, role) VALUES ($1, $2, $3)',
-      [homeId, user.id, 'owner']
-    );
-
     res.status(201).json({
       token,
       user: {
@@ -91,7 +78,6 @@ router.post('/register', async (req, res) => {
         avatarUrl: null,
         createdAt: user.created_at,
       },
-      activeHomeId: homeId,
     });
   } catch (err) {
     console.error('Register error:', err);
@@ -349,6 +335,80 @@ router.get('/avatar/:userId', async (req, res) => {
   } catch (err) {
     console.error('Serve avatar error:', err);
     res.status(500).json({ error: 'Failed to serve avatar' });
+  }
+});
+
+// DELETE /api/auth/account — permanently delete account
+router.delete('/account', authenticate, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      res.status(400).json({ error: 'Password is required' });
+      return;
+    }
+
+    const userId = req.user!.id;
+
+    // Verify password
+    const userResult = await query('SELECT password_hash, avatar_path FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const valid = await bcrypt.compare(password, userResult.rows[0].password_hash);
+    if (!valid) {
+      res.status(401).json({ error: 'Incorrect password' });
+      return;
+    }
+
+    const avatarPath = userResult.rows[0].avatar_path;
+
+    // Find homes where user is a member
+    const homesResult = await query(
+      `SELECT h.id FROM homes h JOIN home_members hm ON h.id = hm.home_id WHERE hm.user_id = $1`,
+      [userId]
+    );
+
+    const PHOTO_STORAGE = process.env.PHOTO_STORAGE_PATH || './uploads';
+
+    for (const home of homesResult.rows) {
+      const countResult = await query('SELECT COUNT(*) FROM home_members WHERE home_id = $1', [home.id]);
+      const memberCount = parseInt(countResult.rows[0].count, 10);
+
+      if (memberCount === 1) {
+        // Sole member — delete photo files for all bins in this home
+        const photosResult = await query(
+          `SELECT p.storage_path FROM photos p JOIN bins b ON p.bin_id = b.id WHERE b.home_id = $1`,
+          [home.id]
+        );
+        for (const photo of photosResult.rows) {
+          try { fs.unlinkSync(path.join(PHOTO_STORAGE, photo.storage_path)); } catch { /* ignore */ }
+        }
+        // Delete bin directories
+        const binsResult = await query('SELECT id FROM bins WHERE home_id = $1', [home.id]);
+        for (const bin of binsResult.rows) {
+          const binDir = path.join(PHOTO_STORAGE, bin.id);
+          try { fs.rmSync(binDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        }
+        // Cascade deletes bins, photos, tag_colors, home_members
+        await query('DELETE FROM homes WHERE id = $1', [home.id]);
+      }
+      // If count > 1, home_members row is removed by ON DELETE CASCADE on users
+    }
+
+    // Delete avatar file
+    if (avatarPath) {
+      try { fs.unlinkSync(avatarPath); } catch { /* ignore */ }
+    }
+
+    // Delete user — cascades home_members, sets NULL on bins/photos/homes created_by
+    await query('DELETE FROM users WHERE id = $1', [userId]);
+
+    res.json({ message: 'Account deleted' });
+  } catch (err) {
+    console.error('Delete account error:', err);
+    res.status(500).json({ error: 'Failed to delete account' });
   }
 });
 

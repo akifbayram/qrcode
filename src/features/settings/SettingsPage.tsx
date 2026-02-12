@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, Download, Upload, AlertTriangle, RotateCcw, LogOut, Home, Plus, LogIn, Users, Crown, ChevronRight } from 'lucide-react';
+import { Sun, Moon, Download, Upload, AlertTriangle, RotateCcw, LogOut, Home, Plus, LogIn, Users, Crown, ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,7 +35,7 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { settings, updateSettings, resetSettings } = useAppSettings();
-  const { user, activeHomeId, setActiveHomeId, logout } = useAuth();
+  const { user, activeHomeId, setActiveHomeId, logout, deleteAccount } = useAuth();
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +52,11 @@ export function SettingsPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+
+  // Delete account state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const { bins } = useBinList();
   const binCount = bins.length;
@@ -162,6 +167,18 @@ export function SettingsPage() {
       showToast({ message: importErrorMessage(err) });
     }
     if (replaceInputRef.current) replaceInputRef.current.value = '';
+  }
+
+  async function handleDeleteAccount(e: React.FormEvent) {
+    e.preventDefault();
+    if (!deletePassword) return;
+    setDeleting(true);
+    try {
+      await deleteAccount(deletePassword);
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Failed to delete account' });
+      setDeleting(false);
+    }
   }
 
   return (
@@ -400,6 +417,68 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Danger Zone */}
+      {user && (
+        <Card>
+          <CardContent>
+            <Label>Danger Zone</Label>
+            <div className="flex flex-col gap-2 mt-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteOpen(true)}
+                className="justify-start rounded-[var(--radius-sm)] h-11 text-[var(--destructive)] border-[var(--destructive)]/30"
+              >
+                <Trash2 className="h-4 w-4 mr-2.5" />
+                Delete Account
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Account confirmation dialog */}
+      <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) { setDeletePassword(''); setDeleting(false); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Account</DialogTitle>
+            <DialogDescription>
+              This will permanently delete your account and all data in homes where you are the only member. Homes shared with others will be preserved. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleDeleteAccount} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="delete-password">Enter your password to confirm</Label>
+              <Input
+                id="delete-password"
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Password"
+                autoFocus
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => { setDeleteOpen(false); setDeletePassword(''); }}
+                className="rounded-[var(--radius-full)]"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!deletePassword || deleting}
+                className="rounded-[var(--radius-full)] bg-[var(--destructive)] hover:opacity-90"
+              >
+                {deleting ? 'Deleting...' : 'Delete Account'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Replace confirmation dialog */}
       <Dialog open={confirmReplace} onOpenChange={setConfirmReplace}>

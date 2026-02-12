@@ -10,6 +10,8 @@ import { useAppSettings } from '@/lib/appSettings';
 import { useAuth } from '@/lib/auth';
 import { useHomeList } from '@/features/homes/useHomes';
 import { TagColorsProvider } from '@/features/tags/TagColorsContext';
+import { useOnboarding } from '@/features/onboarding/useOnboarding';
+import { OnboardingOverlay } from '@/features/onboarding/OnboardingOverlay';
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -21,6 +23,7 @@ export function AppLayout() {
   const { settings } = useAppSettings();
   const { activeHomeId, setActiveHomeId } = useAuth();
   const { homes } = useHomeList();
+  const onboarding = useOnboarding();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -96,6 +99,7 @@ export function AppLayout() {
         </div>
       </main>
       <BottomNav />
+      {onboarding.isOnboarding && <OnboardingOverlay {...onboarding} />}
     </div>
     </TagColorsProvider>
   );

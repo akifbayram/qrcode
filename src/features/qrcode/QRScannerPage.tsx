@@ -8,13 +8,17 @@ import { Label } from '@/components/ui/label';
 import { Html5QrcodePlugin } from './Html5QrcodePlugin';
 import { apiFetch } from '@/lib/api';
 import { haptic } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 import { lookupBinByCode } from '@/features/bins/useBins';
 import { BinCreateDialog } from '@/features/bins/BinCreateDialog';
+import { ScanSuccessOverlay } from '@/features/onboarding/ScanSuccessOverlay';
+import { isFirstScanDone, markFirstScanDone } from '@/features/onboarding/useOnboarding';
 
 const BIN_URL_REGEX = /(?:#\/bin\/|\/bin\/)([a-f0-9-]{36})/i;
 
 export function QRScannerPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [error, setError] = useState<string>('');
   const [scanning, setScanning] = useState(true);
   const [unknownId, setUnknownId] = useState<string | null>(null);
@@ -22,6 +26,7 @@ export function QRScannerPage() {
   const [manualCode, setManualCode] = useState('');
   const [manualError, setManualError] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
+  const [successBinId, setSuccessBinId] = useState<string | null>(null);
 
   async function handleManualLookup() {
     const code = manualCode.trim().toUpperCase();
@@ -48,7 +53,13 @@ export function QRScannerPage() {
         setScanning(false);
         try {
           await apiFetch(`/api/bins/${binId}`);
-          navigate(`/bin/${binId}`);
+          const userId = user?.id ?? '';
+          if (userId && !isFirstScanDone(userId)) {
+            markFirstScanDone(userId);
+            setSuccessBinId(binId);
+          } else {
+            navigate(`/bin/${binId}`);
+          }
         } catch {
           setUnknownId(binId);
         }
@@ -57,7 +68,7 @@ export function QRScannerPage() {
         setError(decodedText);
       }
     },
-    [navigate]
+    [navigate, user]
   );
 
   function handleRetry() {
@@ -180,6 +191,10 @@ export function QRScannerPage() {
           if (!open) handleRetry();
         }}
       />
+
+      {successBinId && (
+        <ScanSuccessOverlay onDismiss={() => navigate(`/bin/${successBinId}`)} />
+      )}
     </div>
   );
 }

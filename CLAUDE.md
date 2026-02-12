@@ -37,6 +37,7 @@ src/
     auth/           # LoginPage, RegisterPage, AuthGuard
     bins/           # BinListPage, BinDetailPage, useBins, BinCard, TagInput, IconPicker, ColorPicker
     homes/          # HomesPage, HomeSelector, HomeMembersDialog, useHomes
+    onboarding/     # OnboardingOverlay, ScanSuccessOverlay, useOnboarding
     photos/         # PhotoGallery, PhotoLightbox, usePhotos, compressImage
     profile/        # ProfilePage (avatar, display name, email, password change)
     tags/           # TagColorsContext, TagColorPicker, TagsPage, useTagColors
@@ -66,7 +67,7 @@ nginx.conf          # Reverse proxy config
 - **Feature hooks pattern**: each feature exposes a React hook (e.g. `useBinList`) for real-time data via `useShape()` and plain async functions (e.g. `addBin`, `deleteBin`) for mutations via `apiFetch()`. Hooks live alongside plain functions in the same file.
 - **Data hooks return `{ data, isLoading }`** — e.g. `useBinList()` returns `{ bins, isLoading }`, `useBin(id)` returns `{ bin, isLoading }`.
 - **`apiFetch<T>(path, options)`** in `lib/api.ts` — wraps fetch with JWT from localStorage, auto JSON stringify, FormData support. Throws `ApiError` on failure.
-- **`useAuth()`** in `lib/auth.tsx` — provides `user`, `token`, `activeHomeId`, plus `login()`, `register()`, `logout()`, `setActiveHomeId()`, `updateUser()`.
+- **`useAuth()`** in `lib/auth.tsx` — provides `user`, `token`, `activeHomeId`, plus `login()`, `register()`, `logout()`, `setActiveHomeId()`, `updateUser()`, `deleteAccount(password)`.
 - **Undo-delete pattern**: server returns deleted bin snapshot on DELETE, pass to `restoreBin(bin)` in the toast undo callback.
 - **Snake_case field names** on DB-backed interfaces (`Bin`, `Photo`, `Home`, `HomeMember`) to match PostgreSQL columns from ElectricSQL. Export types remain camelCase.
 - **`[key: string]: unknown` index signatures** on DB interfaces for ElectricSQL `Row` type compatibility.
@@ -89,7 +90,7 @@ nginx.conf          # Reverse proxy config
 
 ## Server API Routes
 
-- **Auth**: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `PUT /api/auth/profile`, `PUT /api/auth/password`, `POST /api/auth/avatar`, `DELETE /api/auth/avatar`, `GET /api/auth/avatar/:userId`
+- **Auth**: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `PUT /api/auth/profile`, `PUT /api/auth/password`, `POST /api/auth/avatar`, `DELETE /api/auth/avatar`, `GET /api/auth/avatar/:userId`, `DELETE /api/auth/account`
 - **Homes**: `GET /api/homes`, `POST /api/homes`, `PUT /api/homes/:id`, `DELETE /api/homes/:id`, `POST /api/homes/join`, `DELETE /api/homes/:id/members/:userId`, `POST /api/homes/:id/regenerate-invite`
 - **Bins**: `POST /api/bins`, `GET /api/bins`, `GET /api/bins/lookup/:shortCode`, `GET /api/bins/:id`, `PUT /api/bins/:id`, `DELETE /api/bins/:id`, `PUT /api/bins/:id/add-tags`, `POST /api/bins/:id/photos`
 - **Photos**: `GET /api/photos/:id/file`, `DELETE /api/photos/:id`
@@ -110,6 +111,9 @@ nginx.conf          # Reverse proxy config
 - **PWA caching**: `vite-plugin-pwa` uses `generateSW` mode. After changing precached assets, users may need a refresh to get the new service worker.
 - **Auth tokens**: JWT stored in `localStorage('qrbin-token')`, active home in `localStorage('qrbin-active-home')`.
 - **Profile page** (`/profile`) is not in `navItems` — accessed from the account card on Settings or the user info area in the Sidebar.
+- **Onboarding**: `useOnboarding()` in `features/onboarding/useOnboarding.ts` manages guided setup for new users. State persisted in `localStorage('qrbin-onboarding-{userId}')`. `OnboardingOverlay` renders in `AppLayout` when `isOnboarding && homes.length === 0`. 2 steps: name home → create bin. First successful scan triggers `ScanSuccessOverlay` with celebratory animation (tracked via `localStorage('qrbin-first-scan-done-{userId}')`). CSS animations defined in `index.css` (`onboarding-step-enter`, `scan-*` classes). Registration no longer auto-creates a default home — onboarding handles home creation.
+- **Account deletion**: `DELETE /api/auth/account` requires password confirmation. Deletes user, their avatar, and any homes where they are the sole member (cascading bins, photos, tag colors). Shared homes are preserved (membership row removed via CASCADE). `created_by` columns on bins/photos/homes use `ON DELETE SET NULL` (migration 005). Client-side `deleteAccount(password)` on auth context cleans up user-specific localStorage keys and logs out.
+- **DB foreign keys**: `bins.created_by`, `photos.created_by`, and `homes.created_by` are nullable with `ON DELETE SET NULL` referencing `users(id)` — allows user deletion without orphaning shared data.
 
 ## Verification
 

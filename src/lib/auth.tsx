@@ -15,6 +15,7 @@ interface AuthContextValue extends AuthState {
   logout: () => void;
   setActiveHomeId: (id: string | null) => void;
   updateUser: (user: User) => void;
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -104,6 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, user }));
   }, []);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    const userId = state.user?.id;
+    await apiFetch('/api/auth/account', { method: 'DELETE', body: { password } });
+    // Clean up user-specific localStorage keys
+    if (userId) {
+      localStorage.removeItem(`qrbin-onboarding-${userId}`);
+      localStorage.removeItem(`qrbin-first-scan-done-${userId}`);
+    }
+    logout();
+  }, [state.user?.id, logout]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -113,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         setActiveHomeId,
         updateUser,
+        deleteAccount,
       }}
     >
       {children}
