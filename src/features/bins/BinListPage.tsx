@@ -8,7 +8,7 @@ import {
   Tag,
   X,
   CheckCircle2,
-  Home,
+  MapPin,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -54,7 +54,7 @@ export function BinListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
-  const { activeHomeId } = useAuth();
+  const { activeLocationId } = useAuth();
   const { bins, isLoading } = useBinList(debouncedSearch, sort);
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -111,7 +111,7 @@ export function BinListPage() {
         <h1 className="text-[34px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
           Bins
         </h1>
-        {activeHomeId && (
+        {activeLocationId && (
           <Button
             onClick={() => setCreateOpen(true)}
             size="icon"
@@ -123,8 +123,8 @@ export function BinListPage() {
         )}
       </div>
 
-      {/* Search + Sort (only when a home is active) */}
-      {activeHomeId && (
+      {/* Search + Sort (only when a location is active) */}
+      {activeLocationId && (
         <div className="flex items-center gap-2.5">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
@@ -196,19 +196,19 @@ export function BinListPage() {
         </div>
       )}
 
-      {/* No home selected prompt */}
-      {!activeHomeId ? (
+      {/* No location selected prompt */}
+      {!activeLocationId ? (
         <div className="flex flex-col items-center justify-center gap-5 py-24 text-[var(--text-tertiary)]">
-          <Home className="h-16 w-16 opacity-40" />
+          <MapPin className="h-16 w-16 opacity-40" />
           <div className="text-center space-y-1.5">
             <p className="text-[17px] font-semibold text-[var(--text-secondary)]">
-              No home selected
+              No location selected
             </p>
-            <p className="text-[13px]">Create or join a home to start organizing bins</p>
+            <p className="text-[13px]">Create or join a location to start organizing bins</p>
           </div>
-          <Button onClick={() => navigate('/homes')} variant="outline" className="rounded-[var(--radius-full)] mt-1">
-            <Home className="h-4 w-4 mr-2" />
-            Manage Homes
+          <Button onClick={() => navigate('/locations')} variant="outline" className="rounded-[var(--radius-full)] mt-1">
+            <MapPin className="h-4 w-4 mr-2" />
+            Manage Locations
           </Button>
         </div>
       ) : /* Bin grid */

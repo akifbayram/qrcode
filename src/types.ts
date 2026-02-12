@@ -8,7 +8,7 @@ export interface User {
   updatedAt: string;
 }
 
-export interface Home {
+export interface Location {
   [key: string]: unknown;  // ElectricSQL Row compatibility
   id: string;
   name: string;
@@ -18,10 +18,10 @@ export interface Home {
   updated_at: string;
 }
 
-export interface HomeMember {
+export interface LocationMember {
   [key: string]: unknown;  // ElectricSQL Row compatibility
   id: string;
-  home_id: string;
+  location_id: string;
   user_id: string;
   role: 'owner' | 'member';
   joined_at: string;
@@ -30,7 +30,7 @@ export interface HomeMember {
 export interface Bin {
   [key: string]: unknown;  // ElectricSQL Row compatibility
   id: string;
-  home_id: string;
+  location_id: string;
   name: string;
   location: string;
   items: string[];
@@ -59,7 +59,7 @@ export interface Photo {
 export interface TagColor {
   [key: string]: unknown;  // ElectricSQL Row compatibility
   id: string;
-  home_id: string;
+  location_id: string;
   tag: string;
   color: string;
   created_at: string;
@@ -120,7 +120,7 @@ export interface ExportDataV1 {
 export interface ExportDataV2 {
   version: 2;
   exportedAt: string;
-  homeName?: string;
+  locationName?: string;
   bins: ExportBinV2[];
   photos?: ExportedPhoto[];
 }

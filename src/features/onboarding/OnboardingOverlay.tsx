@@ -1,30 +1,30 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Home, Package, X, Ban } from 'lucide-react';
+import { MapPin, Package, X, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
-import { createHome } from '@/features/homes/useHomes';
+import { createLocation } from '@/features/locations/useLocations';
 import { addBin } from '@/features/bins/useBins';
 import { COLOR_PALETTE } from '@/lib/colorPalette';
 
-const STEPS = ['Home', 'Bin'] as const;
+const STEPS = ['Location', 'Bin'] as const;
 
 export interface OnboardingActions {
   step: number;
-  homeId?: string;
-  advanceWithHome: (id: string) => void;
+  locationId?: string;
+  advanceWithLocation: (id: string) => void;
   complete: () => void;
 }
 
-export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: OnboardingActions) {
-  const { setActiveHomeId } = useAuth();
+export function OnboardingOverlay({ step, locationId, advanceWithLocation, complete }: OnboardingActions) {
+  const { setActiveLocationId } = useAuth();
   const { showToast } = useToast();
 
   // Step 0 state
-  const [homeName, setHomeName] = useState('');
+  const [locationName, setLocationName] = useState('');
   // Step 1 state
   const [binName, setBinName] = useState('');
   const [binLocation, setBinLocation] = useState('');
@@ -49,15 +49,15 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  async function handleCreateHome() {
-    if (!homeName.trim()) return;
+  async function handleCreateLocation() {
+    if (!locationName.trim()) return;
     setLoading(true);
     try {
-      const home = await createHome(homeName.trim());
-      setActiveHomeId(home.id);
-      advanceWithHome(home.id);
+      const loc = await createLocation(locationName.trim());
+      setActiveLocationId(loc.id);
+      advanceWithLocation(loc.id);
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Failed to create home' });
+      showToast({ message: err instanceof Error ? err.message : 'Failed to create location' });
     } finally {
       setLoading(false);
     }
@@ -69,12 +69,12 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
   }, [complete]);
 
   async function handleCreateBin() {
-    if (!binName.trim() || !homeId) return;
+    if (!binName.trim() || !locationId) return;
     setLoading(true);
     try {
       await addBin({
         name: binName.trim(),
-        homeId,
+        locationId,
         location: binLocation.trim() || undefined,
         color: binColor || undefined,
         tags: binTags.length > 0 ? binTags : undefined,
@@ -90,10 +90,10 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
   async function handleSkipSetup() {
     setLoading(true);
     try {
-      // Only create a home if one wasn't already created in step 0
-      if (!homeId) {
-        const home = await createHome('My Home');
-        setActiveHomeId(home.id);
+      // Only create a location if one wasn't already created in step 0
+      if (!locationId) {
+        const loc = await createLocation('My Location');
+        setActiveLocationId(loc.id);
       }
       complete();
     } catch (err) {
@@ -142,26 +142,26 @@ export function OnboardingOverlay({ step, homeId, advanceWithHome, complete }: O
           {step === 0 && (
             <div className="flex flex-col items-center text-center">
               <div className="h-16 w-16 rounded-full bg-[var(--accent)] bg-opacity-10 flex items-center justify-center mb-5">
-                <Home className="h-8 w-8 text-[var(--accent)]" />
+                <MapPin className="h-8 w-8 text-[var(--accent)]" />
               </div>
               <h2 className="text-[22px] font-bold text-[var(--text-primary)] mb-2">
-                Name your home
+                Name your location
               </h2>
               <p className="text-[14px] text-[var(--text-tertiary)] mb-6 leading-relaxed">
-                A home is where your bins live. You can invite others later.
+                A location is where your bins live. You can invite others later.
               </p>
               <Input
-                value={homeName}
-                onChange={(e) => setHomeName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateHome(); }}
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateLocation(); }}
                 placeholder="e.g., My House"
                 autoFocus
                 className="mb-4 text-center"
               />
               <Button
                 type="button"
-                onClick={handleCreateHome}
-                disabled={!homeName.trim() || loading}
+                onClick={handleCreateLocation}
+                disabled={!locationName.trim() || loading}
                 className="w-full rounded-[var(--radius-md)] h-11 text-[15px]"
               >
                 {loading ? 'Creating...' : 'Continue'}

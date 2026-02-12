@@ -12,29 +12,29 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
-import { useHomeMembers, useHomeList, removeMember, leaveHome, regenerateInvite } from './useHomes';
+import { useLocationMembers, useLocationList, removeMember, leaveLocation, regenerateInvite } from './useLocations';
 
-interface HomeMembersDialogProps {
-  homeId: string;
+interface LocationMembersDialogProps {
+  locationId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function HomeMembersDialog({ homeId, open, onOpenChange }: HomeMembersDialogProps) {
-  const { user, setActiveHomeId, activeHomeId } = useAuth();
-  const { members, isLoading } = useHomeMembers(homeId);
-  const { homes } = useHomeList();
+export function LocationMembersDialog({ locationId, open, onOpenChange }: LocationMembersDialogProps) {
+  const { user, setActiveLocationId, activeLocationId } = useAuth();
+  const { members, isLoading } = useLocationMembers(locationId);
+  const { locations } = useLocationList();
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
-  const home = homes.find((h) => h.id === homeId);
-  const isOwner = home?.created_by === user?.id;
+  const location = locations.find((h) => h.id === locationId);
+  const isOwner = location?.created_by === user?.id;
 
   async function handleCopyInvite() {
-    if (!home?.invite_code) return;
+    if (!location?.invite_code) return;
     try {
-      await navigator.clipboard.writeText(home.invite_code);
+      await navigator.clipboard.writeText(location.invite_code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -45,7 +45,7 @@ export function HomeMembersDialog({ homeId, open, onOpenChange }: HomeMembersDia
   async function handleRegenerate() {
     setRegenerating(true);
     try {
-      await regenerateInvite(homeId);
+      await regenerateInvite(locationId);
       showToast({ message: 'Invite code regenerated' });
     } catch (err) {
       showToast({ message: err instanceof Error ? err.message : 'Failed to regenerate' });
@@ -56,7 +56,7 @@ export function HomeMembersDialog({ homeId, open, onOpenChange }: HomeMembersDia
 
   async function handleRemoveMember(userId: string) {
     try {
-      await removeMember(homeId, userId);
+      await removeMember(locationId, userId);
       showToast({ message: 'Member removed' });
     } catch (err) {
       showToast({ message: err instanceof Error ? err.message : 'Failed to remove member' });
@@ -66,13 +66,13 @@ export function HomeMembersDialog({ homeId, open, onOpenChange }: HomeMembersDia
   async function handleLeave() {
     if (!user) return;
     try {
-      await leaveHome(homeId, user.id);
-      if (activeHomeId === homeId) {
-        const other = homes.find((h) => h.id !== homeId);
-        setActiveHomeId(other?.id ?? null);
+      await leaveLocation(locationId, user.id);
+      if (activeLocationId === locationId) {
+        const other = locations.find((h) => h.id !== locationId);
+        setActiveLocationId(other?.id ?? null);
       }
       onOpenChange(false);
-      showToast({ message: 'Left home' });
+      showToast({ message: 'Left location' });
     } catch (err) {
       showToast({ message: err instanceof Error ? err.message : 'Failed to leave' });
     }
@@ -82,17 +82,17 @@ export function HomeMembersDialog({ homeId, open, onOpenChange }: HomeMembersDia
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{home?.name ?? 'Home'} Members</DialogTitle>
+          <DialogTitle>{location?.name ?? 'Location'} Members</DialogTitle>
           <DialogDescription>
             Manage members and share the invite code.
           </DialogDescription>
         </DialogHeader>
 
         {/* Invite Code */}
-        {home?.invite_code && (
+        {location?.invite_code && (
           <div className="flex items-center gap-2 p-3 rounded-[var(--radius-sm)] bg-[var(--bg-input)]">
             <span className="flex-1 text-[14px] font-mono text-[var(--text-primary)] tracking-wider">
-              {home.invite_code}
+              {location.invite_code}
             </span>
             <Button
               variant="ghost"
@@ -177,7 +177,7 @@ export function HomeMembersDialog({ homeId, open, onOpenChange }: HomeMembersDia
             className="w-full rounded-[var(--radius-sm)] text-[var(--destructive)]"
           >
             <LogOut className="h-4 w-4 mr-2" />
-            Leave Home
+            Leave Location
           </Button>
         )}
       </DialogContent>

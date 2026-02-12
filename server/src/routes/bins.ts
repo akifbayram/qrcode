@@ -48,23 +48,23 @@ const upload = multer({
 
 router.use(authenticate);
 
-/** Verify user is a member of the home that owns a bin */
-async function verifyBinAccess(binId: string, userId: string): Promise<{ homeId: string } | null> {
+/** Verify user is a member of the location that owns a bin */
+async function verifyBinAccess(binId: string, userId: string): Promise<{ locationId: string } | null> {
   const result = await query(
-    `SELECT b.home_id FROM bins b
-     JOIN home_members hm ON hm.home_id = b.home_id AND hm.user_id = $2
+    `SELECT b.location_id FROM bins b
+     JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
      WHERE b.id = $1`,
     [binId, userId]
   );
   if (result.rows.length === 0) return null;
-  return { homeId: result.rows[0].home_id };
+  return { locationId: result.rows[0].location_id };
 }
 
-/** Verify user is a member of a specific home */
-async function verifyHomeMembership(homeId: string, userId: string): Promise<boolean> {
+/** Verify user is a member of a specific location */
+async function verifyLocationMembership(locationId: string, userId: string): Promise<boolean> {
   const result = await query(
-    'SELECT id FROM home_members WHERE home_id = $1 AND user_id = $2',
-    [homeId, userId]
+    'SELECT id FROM location_members WHERE location_id = $1 AND user_id = $2',
+    [locationId, userId]
   );
   return result.rows.length > 0;
 }
@@ -72,10 +72,10 @@ async function verifyHomeMembership(homeId: string, userId: string): Promise<boo
 // POST /api/bins — create bin
 router.post('/', async (req, res) => {
   try {
-    const { homeId, name, location, items, notes, tags, icon, color, id, shortCode } = req.body;
+    const { locationId, name, location, items, notes, tags, icon, color, id, shortCode } = req.body;
 
-    if (!homeId) {
-      res.status(400).json({ error: 'homeId is required' });
+    if (!locationId) {
+      res.status(400).json({ error: 'locationId is required' });
       return;
     }
 
@@ -84,8 +84,8 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
@@ -96,7 +96,7 @@ router.post('/', async (req, res) => {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const code = attempt === 0 ? sc : generateShortCode();
       const params: unknown[] = [
-        homeId,
+        locationId,
         name.trim(),
         location || '',
         items || [],
@@ -110,14 +110,14 @@ router.post('/', async (req, res) => {
 
       let sql: string;
       if (id) {
-        sql = `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, created_by, short_code)
+        sql = `INSERT INTO bins (id, location_id, name, location, items, notes, tags, icon, color, created_by, short_code)
                VALUES ($11, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-               RETURNING id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`;
+               RETURNING id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`;
         params.push(id);
       } else {
-        sql = `INSERT INTO bins (home_id, name, location, items, notes, tags, icon, color, created_by, short_code)
+        sql = `INSERT INTO bins (location_id, name, location, items, notes, tags, icon, color, created_by, short_code)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-               RETURNING id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`;
+               RETURNING id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`;
       }
 
       try {
@@ -140,25 +140,25 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET /api/bins — list all bins for a home
+// GET /api/bins — list all bins for a location
 router.get('/', async (req, res) => {
   try {
-    const homeId = req.query.home_id as string | undefined;
+    const locationId = req.query.location_id as string | undefined;
 
-    if (!homeId) {
-      res.status(400).json({ error: 'home_id query parameter is required' });
+    if (!locationId) {
+      res.status(400).json({ error: 'location_id query parameter is required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
     const result = await query(
-      `SELECT id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at
-       FROM bins WHERE home_id = $1 ORDER BY updated_at DESC`,
-      [homeId]
+      `SELECT id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at
+       FROM bins WHERE location_id = $1 ORDER BY updated_at DESC`,
+      [locationId]
     );
 
     res.json(result.rows);
@@ -174,9 +174,9 @@ router.get('/lookup/:shortCode', async (req, res) => {
     const code = req.params.shortCode.toUpperCase();
 
     const result = await query(
-      `SELECT b.id, b.home_id, b.name, b.location, b.items, b.notes, b.tags, b.icon, b.color, b.short_code, b.created_by, b.created_at, b.updated_at
+      `SELECT b.id, b.location_id, b.name, b.location, b.items, b.notes, b.tags, b.icon, b.color, b.short_code, b.created_by, b.created_at, b.updated_at
        FROM bins b
-       JOIN home_members hm ON hm.home_id = b.home_id AND hm.user_id = $2
+       JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
        WHERE UPPER(b.short_code) = $1`,
       [code, req.user!.id]
     );
@@ -205,7 +205,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const result = await query(
-      'SELECT id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at FROM bins WHERE id = $1',
+      'SELECT id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at FROM bins WHERE id = $1',
       [id]
     );
 
@@ -271,7 +271,7 @@ router.put('/:id', async (req, res) => {
 
     const result = await query(
       `UPDATE bins SET ${setClauses.join(', ')} WHERE id = $${paramIdx}
-       RETURNING id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`,
+       RETURNING id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at`,
       params
     );
 
@@ -300,7 +300,7 @@ router.delete('/:id', async (req, res) => {
 
     // Fetch bin before deleting for undo
     const binResult = await query(
-      'SELECT id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at FROM bins WHERE id = $1',
+      'SELECT id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at FROM bins WHERE id = $1',
       [id]
     );
 

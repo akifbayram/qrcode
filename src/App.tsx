@@ -29,8 +29,8 @@ const SettingsPage = React.lazy(() =>
   import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 );
 
-const HomesPage = React.lazy(() =>
-  import('@/features/homes/HomesPage').then((m) => ({ default: m.HomesPage }))
+const LocationsPage = React.lazy(() =>
+  import('@/features/locations/LocationsPage').then((m) => ({ default: m.LocationsPage }))
 );
 
 const ProfilePage = React.lazy(() =>
@@ -193,10 +193,10 @@ export default function App() {
                   }
                 />
                 <Route
-                  path="/homes"
+                  path="/locations"
                   element={
                     <Suspense fallback={<LoadingFallback />}>
-                      <HomesPage />
+                      <LocationsPage />
                     </Suspense>
                   }
                 />

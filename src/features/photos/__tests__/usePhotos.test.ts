@@ -6,7 +6,7 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('@/lib/auth', () => ({
   useAuth: () => ({
-    activeHomeId: 'test-home',
+    activeLocationId: 'test-location',
     token: 'test-token',
   }),
 }));

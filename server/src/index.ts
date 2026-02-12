@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.js';
-import homesRoutes from './routes/homes.js';
+import locationsRoutes from './routes/locations.js';
 import binsRoutes from './routes/bins.js';
 import photosRoutes from './routes/photos.js';
 import shapesRoutes from './routes/shapes.js';
@@ -16,7 +16,7 @@ app.use(express.json({ limit: '100mb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/homes', homesRoutes);
+app.use('/api/locations', locationsRoutes);
 app.use('/api/bins', binsRoutes);
 app.use('/api/photos', photosRoutes);
 app.use('/api/shapes', shapesRoutes);

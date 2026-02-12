@@ -13,13 +13,13 @@ export function notifyBinsChanged() {
 export type SortOption = 'updated' | 'created' | 'name';
 
 export function useBinList(searchQuery?: string, sort: SortOption = 'updated') {
-  const { activeHomeId, token } = useAuth();
+  const { activeLocationId, token } = useAuth();
   const [rawBins, setRawBins] = useState<Bin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   useEffect(() => {
-    if (!token || !activeHomeId) {
+    if (!token || !activeLocationId) {
       setRawBins([]);
       setIsLoading(false);
       return;
@@ -28,7 +28,7 @@ export function useBinList(searchQuery?: string, sort: SortOption = 'updated') {
     let cancelled = false;
     setIsLoading(true);
 
-    apiFetch<Bin[]>(`/api/bins?home_id=${encodeURIComponent(activeHomeId)}`)
+    apiFetch<Bin[]>(`/api/bins?location_id=${encodeURIComponent(activeLocationId)}`)
       .then((data) => {
         if (!cancelled) setRawBins(data);
       })
@@ -40,7 +40,7 @@ export function useBinList(searchQuery?: string, sort: SortOption = 'updated') {
       });
 
     return () => { cancelled = true; };
-  }, [token, activeHomeId, refreshCounter]);
+  }, [token, activeLocationId, refreshCounter]);
 
   // Listen for bins-changed events
   useEffect(() => {
@@ -123,7 +123,7 @@ export function useBin(id: string | undefined) {
 
 export interface AddBinOptions {
   name: string;
-  homeId: string;
+  locationId: string;
   items?: string[];
   notes?: string;
   tags?: string[];
@@ -136,7 +136,7 @@ export async function addBin(options: AddBinOptions): Promise<string> {
   const result = await apiFetch<{ id: string }>('/api/bins', {
     method: 'POST',
     body: {
-      homeId: options.homeId,
+      locationId: options.locationId,
       name: options.name,
       location: options.location ?? '',
       items: options.items ?? [],
@@ -174,7 +174,7 @@ export async function restoreBin(bin: Bin): Promise<void> {
     method: 'POST',
     body: {
       id: bin.id,
-      homeId: bin.home_id,
+      locationId: bin.location_id,
       name: bin.name,
       location: bin.location,
       items: bin.items,

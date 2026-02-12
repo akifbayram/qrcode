@@ -5,7 +5,7 @@ import type { User } from '@/types';
 interface AuthState {
   user: User | null;
   token: string | null;
-  activeHomeId: string | null;
+  activeLocationId: string | null;
   loading: boolean;
 }
 
@@ -13,7 +13,7 @@ interface AuthContextValue extends AuthState {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string, displayName: string) => Promise<void>;
   logout: () => void;
-  setActiveHomeId: (id: string | null) => void;
+  setActiveLocationId: (id: string | null) => void;
   updateUser: (user: User) => void;
   deleteAccount: (password: string) => Promise<void>;
 }
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     token: localStorage.getItem('qrbin-token'),
-    activeHomeId: localStorage.getItem('qrbin-active-home'),
+    activeLocationId: localStorage.getItem('qrbin-active-location'),
     loading: true,
   });
 
@@ -53,52 +53,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const data = await apiFetch<{ token: string; user: User; activeHomeId?: string }>('/api/auth/login', {
+    const data = await apiFetch<{ token: string; user: User; activeLocationId?: string }>('/api/auth/login', {
       method: 'POST',
       body: { username, password },
     });
     localStorage.setItem('qrbin-token', data.token);
-    if (data.activeHomeId) {
-      localStorage.setItem('qrbin-active-home', data.activeHomeId);
+    if (data.activeLocationId) {
+      localStorage.setItem('qrbin-active-location', data.activeLocationId);
     }
     setState((s) => ({
       ...s,
       user: data.user,
       token: data.token,
-      activeHomeId: data.activeHomeId ?? s.activeHomeId,
+      activeLocationId: data.activeLocationId ?? s.activeLocationId,
     }));
   }, []);
 
   const register = useCallback(async (username: string, password: string, displayName: string) => {
-    const data = await apiFetch<{ token: string; user: User; activeHomeId?: string }>('/api/auth/register', {
+    const data = await apiFetch<{ token: string; user: User; activeLocationId?: string }>('/api/auth/register', {
       method: 'POST',
       body: { username, password, displayName },
     });
     localStorage.setItem('qrbin-token', data.token);
-    if (data.activeHomeId) {
-      localStorage.setItem('qrbin-active-home', data.activeHomeId);
+    if (data.activeLocationId) {
+      localStorage.setItem('qrbin-active-location', data.activeLocationId);
     }
     setState((s) => ({
       ...s,
       user: data.user,
       token: data.token,
-      activeHomeId: data.activeHomeId ?? s.activeHomeId,
+      activeLocationId: data.activeLocationId ?? s.activeLocationId,
     }));
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem('qrbin-token');
-    localStorage.removeItem('qrbin-active-home');
-    setState({ user: null, token: null, activeHomeId: null, loading: false });
+    localStorage.removeItem('qrbin-active-location');
+    setState({ user: null, token: null, activeLocationId: null, loading: false });
   }, []);
 
-  const setActiveHomeId = useCallback((id: string | null) => {
+  const setActiveLocationId = useCallback((id: string | null) => {
     if (id) {
-      localStorage.setItem('qrbin-active-home', id);
+      localStorage.setItem('qrbin-active-location', id);
     } else {
-      localStorage.removeItem('qrbin-active-home');
+      localStorage.removeItem('qrbin-active-location');
     }
-    setState((s) => ({ ...s, activeHomeId: id }));
+    setState((s) => ({ ...s, activeLocationId: id }));
   }, []);
 
   const updateUser = useCallback((user: User) => {
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
-        setActiveHomeId,
+        setActiveLocationId,
         updateUser,
         deleteAccount,
       }}

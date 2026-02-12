@@ -15,7 +15,7 @@ vi.mock('@/lib/api', () => ({
 // Mock useAuth
 vi.mock('@/lib/auth', () => ({
   useAuth: () => ({
-    activeHomeId: 'test-home',
+    activeLocationId: 'test-location',
     token: 'test-token',
   }),
 }));
@@ -35,7 +35,7 @@ describe('addBin', () => {
 
     const id = await addBin({
       name: 'My Bin',
-      homeId: 'home-1',
+      locationId: 'location-1',
       items: ['stuff'],
       notes: 'some notes',
       tags: ['electronics'],
@@ -47,7 +47,7 @@ describe('addBin', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/bins', {
       method: 'POST',
       body: {
-        homeId: 'home-1',
+        locationId: 'location-1',
         name: 'My Bin',
         location: '',
         items: ['stuff'],
@@ -62,12 +62,12 @@ describe('addBin', () => {
   it('uses default values for optional fields', async () => {
     mockApiFetch.mockResolvedValue({ id: 'new-id' });
 
-    await addBin({ name: 'Minimal', homeId: 'home-1' });
+    await addBin({ name: 'Minimal', locationId: 'location-1' });
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/bins', {
       method: 'POST',
       body: {
-        homeId: 'home-1',
+        locationId: 'location-1',
         name: 'Minimal',
         location: '',
         items: [],
@@ -113,7 +113,7 @@ describe('restoreBin', () => {
 
     await restoreBin({
       id: 'restored-bin',
-      home_id: 'home-1',
+      location_id: 'location-1',
       name: 'Restored',
       location: '',
       items: [],
@@ -131,7 +131,7 @@ describe('restoreBin', () => {
       method: 'POST',
       body: expect.objectContaining({
         id: 'restored-bin',
-        homeId: 'home-1',
+        locationId: 'location-1',
         name: 'Restored',
       }),
     });

@@ -27,7 +27,7 @@ interface BinCreateDialogProps {
 
 export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDialogProps) {
   const navigate = useNavigate();
-  const { activeHomeId } = useAuth();
+  const { activeLocationId } = useAuth();
   const allTags = useAllTags();
   const [name, setName] = useState(prefillName ?? '');
   const [location, setLocation] = useState('');
@@ -40,12 +40,12 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !activeHomeId) return;
+    if (!name.trim() || !activeLocationId) return;
     setLoading(true);
     try {
       const id = await addBin({
         name: name.trim(),
-        homeId: activeHomeId,
+        locationId: activeLocationId,
         items,
         notes: notes.trim(),
         tags,
@@ -125,7 +125,7 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim() || !activeHomeId || loading}>
+            <Button type="submit" disabled={!name.trim() || !activeLocationId || loading}>
               {loading ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>

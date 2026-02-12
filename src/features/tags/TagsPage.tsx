@@ -19,7 +19,7 @@ interface TagInfo {
 export function TagsPage() {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
-  const { activeHomeId } = useAuth();
+  const { activeLocationId } = useAuth();
   const { bins } = useBinList();
   const { tagColors } = useTagColorsContext();
   const { theme } = useTheme();
@@ -53,8 +53,8 @@ export function TagsPage() {
   }
 
   function handleColorChange(tag: string, color: string) {
-    if (!activeHomeId) return;
-    setTagColor(activeHomeId, tag, color);
+    if (!activeLocationId) return;
+    setTagColor(activeLocationId, tag, color);
   }
 
   function getTagBadgeStyle(tag: string) {

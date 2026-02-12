@@ -14,8 +14,8 @@ export class ImportError extends Error {
   }
 }
 
-export async function exportAllData(homeId: string): Promise<ExportDataV2> {
-  return apiFetch<ExportDataV2>(`/api/homes/${homeId}/export`);
+export async function exportAllData(locationId: string): Promise<ExportDataV2> {
+  return apiFetch<ExportDataV2>(`/api/locations/${locationId}/export`);
 }
 
 export function downloadExport(data: ExportData): void {
@@ -117,7 +117,7 @@ export interface ImportResult {
 }
 
 export async function importData(
-  homeId: string,
+  locationId: string,
   data: ExportData,
   mode: 'merge' | 'replace'
 ): Promise<ImportResult> {
@@ -147,18 +147,18 @@ export async function importData(
     }));
   }
 
-  return apiFetch<ImportResult>(`/api/homes/${homeId}/import`, {
+  return apiFetch<ImportResult>(`/api/locations/${locationId}/import`, {
     method: 'POST',
     body: { bins, mode },
   });
 }
 
 export async function importLegacyData(
-  homeId: string,
+  locationId: string,
   data: ExportData
 ): Promise<ImportResult> {
   return apiFetch<ImportResult>('/api/import/legacy', {
     method: 'POST',
-    body: { homeId, data },
+    body: { locationId, data },
   });
 }

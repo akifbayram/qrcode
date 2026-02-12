@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
-import { useHomeList } from '@/features/homes/useHomes';
+import { useLocationList } from '@/features/locations/useLocations';
 import { compressImage } from '@/features/photos/compressImage';
 import type { User } from '@/types';
 
@@ -16,7 +16,7 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
-  const { homes } = useHomeList();
+  const { locations } = useLocationList();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile form
@@ -283,8 +283,8 @@ export function ProfilePage() {
               <span className="font-medium text-[var(--text-primary)]">{memberSince}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--text-tertiary)]">Homes</span>
-              <span className="font-medium text-[var(--text-primary)]">{homes.length}</span>
+              <span className="text-[var(--text-tertiary)]">Locations</span>
+              <span className="font-medium text-[var(--text-primary)]">{locations.length}</span>
             </div>
           </div>
         </CardContent>

@@ -9,12 +9,12 @@ const PHOTO_STORAGE_PATH = process.env.PHOTO_STORAGE_PATH || './uploads';
 
 router.use(authenticate);
 
-/** Verify user has access to a photo via photo → bin → home chain */
+/** Verify user has access to a photo via photo -> bin -> location chain */
 async function verifyPhotoAccess(photoId: string, userId: string): Promise<{ binId: string; storagePath: string } | null> {
   const result = await query(
     `SELECT p.bin_id, p.storage_path FROM photos p
      JOIN bins b ON b.id = p.bin_id
-     JOIN home_members hm ON hm.home_id = b.home_id AND hm.user_id = $2
+     JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
      WHERE p.id = $1`,
     [photoId, userId]
   );
@@ -32,10 +32,10 @@ router.get('/', async (req, res) => {
       return;
     }
 
-    // Verify user has access to the bin's home
+    // Verify user has access to the bin's location
     const accessResult = await query(
-      `SELECT b.home_id FROM bins b
-       JOIN home_members hm ON hm.home_id = b.home_id AND hm.user_id = $2
+      `SELECT b.location_id FROM bins b
+       JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
        WHERE b.id = $1`,
       [binId, req.user!.id]
     );

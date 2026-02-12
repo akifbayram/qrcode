@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Home, Check } from 'lucide-react';
+import { ChevronDown, MapPin, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
-import { useHomeList } from './useHomes';
+import { useLocationList } from './useLocations';
 
-export function HomeSelector() {
-  const { activeHomeId, setActiveHomeId } = useAuth();
-  const { homes } = useHomeList();
+export function LocationSelector() {
+  const { activeLocationId, setActiveLocationId } = useAuth();
+  const { locations } = useLocationList();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const activeHome = homes.find((h) => h.id === activeHomeId);
+  const activeLocation = locations.find((h) => h.id === activeLocationId);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -22,14 +22,14 @@ export function HomeSelector() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Auto-select first home if none is active
+  // Auto-select first location if none is active
   useEffect(() => {
-    if (!activeHomeId && homes.length > 0) {
-      setActiveHomeId(homes[0].id);
+    if (!activeLocationId && locations.length > 0) {
+      setActiveLocationId(locations[0].id);
     }
-  }, [activeHomeId, homes, setActiveHomeId]);
+  }, [activeLocationId, locations, setActiveLocationId]);
 
-  if (homes.length === 0) return null;
+  if (locations.length === 0) return null;
 
   return (
     <div ref={ref} className="relative">
@@ -37,28 +37,28 @@ export function HomeSelector() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 w-full px-3 py-2 rounded-[var(--radius-sm)] text-[14px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
       >
-        <Home className="h-4 w-4 shrink-0" />
+        <MapPin className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left truncate font-medium">
-          {activeHome?.name || 'Select Home'}
+          {activeLocation?.name || 'Select Location'}
         </span>
         <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')} />
       </button>
 
       {open && (
         <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-[var(--radius-md)] border border-[var(--border-subtle)] shadow-lg py-1 max-h-60 overflow-y-auto bg-[var(--bg-elevated)]">
-          {homes.map((home) => (
+          {locations.map((loc) => (
             <button
-              key={home.id}
+              key={loc.id}
               onClick={() => {
-                setActiveHomeId(home.id);
+                setActiveLocationId(loc.id);
                 setOpen(false);
               }}
               className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[14px] hover:bg-[var(--bg-hover)] transition-colors"
             >
               <span className="flex-1 text-left truncate text-[var(--text-primary)]">
-                {home.name}
+                {loc.name}
               </span>
-              {home.id === activeHomeId && (
+              {loc.id === activeLocationId && (
                 <Check className="h-4 w-4 text-[var(--accent)] shrink-0" />
               )}
             </button>

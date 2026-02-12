@@ -4,7 +4,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { query, pool } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
-import { requireHomeMember } from '../middleware/homeAccess.js';
+import { requireLocationMember } from '../middleware/locationAccess.js';
 
 const router = Router();
 const PHOTO_STORAGE_PATH = process.env.PHOTO_STORAGE_PATH || './uploads';
@@ -46,7 +46,7 @@ interface ExportPhoto {
 interface ExportData {
   version: 2;
   exportedAt: string;
-  homeName: string;
+  locationName: string;
   bins: ExportBin[];
 }
 
@@ -74,24 +74,24 @@ interface LegacyPhotoV1 {
   filename?: string;
 }
 
-// GET /api/homes/:id/export — export all bins + photos for a home
-router.get('/homes/:id/export', requireHomeMember(), async (req, res) => {
+// GET /api/locations/:id/export — export all bins + photos for a location
+router.get('/locations/:id/export', requireLocationMember(), async (req, res) => {
   try {
-    const homeId = req.params.id;
+    const locationId = req.params.id;
 
-    // Get home name
-    const homeResult = await query('SELECT name FROM homes WHERE id = $1', [homeId]);
-    if (homeResult.rows.length === 0) {
-      res.status(404).json({ error: 'Home not found' });
+    // Get location name
+    const locationResult = await query('SELECT name FROM locations WHERE id = $1', [locationId]);
+    if (locationResult.rows.length === 0) {
+      res.status(404).json({ error: 'Location not found' });
       return;
     }
 
-    const homeName = homeResult.rows[0].name;
+    const locationName = locationResult.rows[0].name;
 
-    // Get all bins for this home
+    // Get all bins for this location
     const binsResult = await query(
-      'SELECT id, name, location, items, notes, tags, icon, color, short_code, created_at, updated_at FROM bins WHERE home_id = $1 ORDER BY updated_at DESC',
-      [homeId]
+      'SELECT id, name, location, items, notes, tags, icon, color, short_code, created_at, updated_at FROM bins WHERE location_id = $1 ORDER BY updated_at DESC',
+      [locationId]
     );
 
     const exportBins: ExportBin[] = [];
@@ -140,11 +140,11 @@ router.get('/homes/:id/export', requireHomeMember(), async (req, res) => {
     const exportData: ExportData = {
       version: 2,
       exportedAt: new Date().toISOString(),
-      homeName,
+      locationName,
       bins: exportBins,
     };
 
-    res.setHeader('Content-Disposition', `attachment; filename="qrbin-export-${homeId}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="qrbin-export-${locationId}.json"`);
     res.json(exportData);
   } catch (err) {
     console.error('Export error:', err);
@@ -152,10 +152,10 @@ router.get('/homes/:id/export', requireHomeMember(), async (req, res) => {
   }
 });
 
-// POST /api/homes/:id/import — import bins + photos
-router.post('/homes/:id/import', requireHomeMember(), async (req, res) => {
+// POST /api/locations/:id/import — import bins + photos
+router.post('/locations/:id/import', requireLocationMember(), async (req, res) => {
   try {
-    const homeId = req.params.id;
+    const locationId = req.params.id;
     const { bins, mode } = req.body as { bins: ExportBin[]; mode: 'merge' | 'replace' };
 
     if (!bins || !Array.isArray(bins)) {
@@ -172,11 +172,11 @@ router.post('/homes/:id/import', requireHomeMember(), async (req, res) => {
       if (importMode === 'replace') {
         // Get existing photos to clean up files
         const existingPhotos = await client.query(
-          'SELECT storage_path FROM photos WHERE bin_id IN (SELECT id FROM bins WHERE home_id = $1)',
-          [homeId]
+          'SELECT storage_path FROM photos WHERE bin_id IN (SELECT id FROM bins WHERE location_id = $1)',
+          [locationId]
         );
         // Delete existing bins (cascade deletes photos in DB)
-        await client.query('DELETE FROM bins WHERE home_id = $1', [homeId]);
+        await client.query('DELETE FROM bins WHERE location_id = $1', [locationId]);
         // Clean up photo files
         for (const photo of existingPhotos.rows) {
           try {
@@ -208,11 +208,11 @@ router.post('/homes/:id/import', requireHomeMember(), async (req, res) => {
           const code = attempt === 0 && bin.shortCode ? bin.shortCode : generateShortCode();
           try {
             await client.query(
-              `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at)
+              `INSERT INTO bins (id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
               [
                 binId,
-                homeId,
+                locationId,
                 bin.name,
                 bin.location || '',
                 bin.items || [],
@@ -286,10 +286,10 @@ router.post('/homes/:id/import', requireHomeMember(), async (req, res) => {
 // POST /api/import/legacy — import legacy V1/V2 format
 router.post('/import/legacy', async (req, res) => {
   try {
-    const { homeId, data } = req.body;
+    const { locationId, data } = req.body;
 
-    if (!homeId) {
-      res.status(400).json({ error: 'homeId is required' });
+    if (!locationId) {
+      res.status(400).json({ error: 'locationId is required' });
       return;
     }
 
@@ -300,12 +300,12 @@ router.post('/import/legacy', async (req, res) => {
 
     // Verify membership
     const memberResult = await query(
-      'SELECT id FROM home_members WHERE home_id = $1 AND user_id = $2',
-      [homeId, req.user!.id]
+      'SELECT id FROM location_members WHERE location_id = $1 AND user_id = $2',
+      [locationId, req.user!.id]
     );
 
     if (memberResult.rows.length === 0) {
-      res.status(403).json({ error: 'Not a member of this home' });
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
@@ -360,11 +360,11 @@ router.post('/import/legacy', async (req, res) => {
           const code = generateShortCode();
           try {
             await client.query(
-              `INSERT INTO bins (id, home_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at)
+              `INSERT INTO bins (id, location_id, name, location, items, notes, tags, icon, color, short_code, created_by, created_at, updated_at)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
               [
                 binId,
-                homeId,
+                locationId,
                 bin.name,
                 bin.location,
                 bin.items,

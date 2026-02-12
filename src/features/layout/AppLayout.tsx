@@ -8,7 +8,7 @@ import { useTheme } from '@/lib/theme';
 import { useOnlineStatus } from '@/lib/useOnlineStatus';
 import { useAppSettings } from '@/lib/appSettings';
 import { useAuth } from '@/lib/auth';
-import { useHomeList } from '@/features/homes/useHomes';
+import { useLocationList } from '@/features/locations/useLocations';
 import { TagColorsProvider } from '@/features/tags/TagColorsContext';
 import { useOnboarding } from '@/features/onboarding/useOnboarding';
 import { OnboardingOverlay } from '@/features/onboarding/OnboardingOverlay';
@@ -21,20 +21,20 @@ export function AppLayout() {
   const { theme, toggleTheme } = useTheme();
   const online = useOnlineStatus();
   const { settings } = useAppSettings();
-  const { activeHomeId, setActiveHomeId } = useAuth();
-  const { homes } = useHomeList();
+  const { activeLocationId, setActiveLocationId } = useAuth();
+  const { locations } = useLocationList();
   const onboarding = useOnboarding();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
-  // Auto-select first home when none is active or active home no longer exists
+  // Auto-select first location when none is active or active location no longer exists
   useEffect(() => {
-    if (homes.length > 0) {
-      if (!activeHomeId || !homes.some((h) => h.id === activeHomeId)) {
-        setActiveHomeId(homes[0].id);
+    if (locations.length > 0) {
+      if (!activeLocationId || !locations.some((h) => h.id === activeLocationId)) {
+        setActiveLocationId(locations[0].id);
       }
     }
-  }, [activeHomeId, homes, setActiveHomeId]);
+  }, [activeLocationId, locations, setActiveLocationId]);
 
   useEffect(() => {
     function handleBeforeInstall(e: Event) {

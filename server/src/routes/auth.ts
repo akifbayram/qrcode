@@ -114,14 +114,14 @@ router.post('/login', async (req, res) => {
 
     const token = signToken({ id: user.id, username: user.username });
 
-    // Fetch user's first home for auto-selection
-    const homesResult = await query(
-      `SELECT h.id FROM homes h
-       JOIN home_members hm ON hm.home_id = h.id AND hm.user_id = $1
-       ORDER BY h.updated_at DESC LIMIT 1`,
+    // Fetch user's first location for auto-selection
+    const locationsResult = await query(
+      `SELECT l.id FROM locations l
+       JOIN location_members lm ON lm.location_id = l.id AND lm.user_id = $1
+       ORDER BY l.updated_at DESC LIMIT 1`,
       [user.id]
     );
-    const activeHomeId = homesResult.rows.length > 0 ? homesResult.rows[0].id : null;
+    const activeLocationId = locationsResult.rows.length > 0 ? locationsResult.rows[0].id : null;
 
     res.json({
       token,
@@ -132,7 +132,7 @@ router.post('/login', async (req, res) => {
         email: user.email || null,
         avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
       },
-      activeHomeId,
+      activeLocationId,
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -364,37 +364,37 @@ router.delete('/account', authenticate, async (req, res) => {
 
     const avatarPath = userResult.rows[0].avatar_path;
 
-    // Find homes where user is a member
-    const homesResult = await query(
-      `SELECT h.id FROM homes h JOIN home_members hm ON h.id = hm.home_id WHERE hm.user_id = $1`,
+    // Find locations where user is a member
+    const locationsResult = await query(
+      `SELECT l.id FROM locations l JOIN location_members lm ON l.id = lm.location_id WHERE lm.user_id = $1`,
       [userId]
     );
 
     const PHOTO_STORAGE = process.env.PHOTO_STORAGE_PATH || './uploads';
 
-    for (const home of homesResult.rows) {
-      const countResult = await query('SELECT COUNT(*) FROM home_members WHERE home_id = $1', [home.id]);
+    for (const location of locationsResult.rows) {
+      const countResult = await query('SELECT COUNT(*) FROM location_members WHERE location_id = $1', [location.id]);
       const memberCount = parseInt(countResult.rows[0].count, 10);
 
       if (memberCount === 1) {
-        // Sole member — delete photo files for all bins in this home
+        // Sole member — delete photo files for all bins in this location
         const photosResult = await query(
-          `SELECT p.storage_path FROM photos p JOIN bins b ON p.bin_id = b.id WHERE b.home_id = $1`,
-          [home.id]
+          `SELECT p.storage_path FROM photos p JOIN bins b ON p.bin_id = b.id WHERE b.location_id = $1`,
+          [location.id]
         );
         for (const photo of photosResult.rows) {
           try { fs.unlinkSync(path.join(PHOTO_STORAGE, photo.storage_path)); } catch { /* ignore */ }
         }
         // Delete bin directories
-        const binsResult = await query('SELECT id FROM bins WHERE home_id = $1', [home.id]);
+        const binsResult = await query('SELECT id FROM bins WHERE location_id = $1', [location.id]);
         for (const bin of binsResult.rows) {
           const binDir = path.join(PHOTO_STORAGE, bin.id);
           try { fs.rmSync(binDir, { recursive: true, force: true }); } catch { /* ignore */ }
         }
-        // Cascade deletes bins, photos, tag_colors, home_members
-        await query('DELETE FROM homes WHERE id = $1', [home.id]);
+        // Cascade deletes bins, photos, tag_colors, location_members
+        await query('DELETE FROM locations WHERE id = $1', [location.id]);
       }
-      // If count > 1, home_members row is removed by ON DELETE CASCADE on users
+      // If count > 1, location_members row is removed by ON DELETE CASCADE on users
     }
 
     // Delete avatar file
@@ -402,7 +402,7 @@ router.delete('/account', authenticate, async (req, res) => {
       try { fs.unlinkSync(avatarPath); } catch { /* ignore */ }
     }
 
-    // Delete user — cascades home_members, sets NULL on bins/photos/homes created_by
+    // Delete user — cascades location_members, sets NULL on bins/photos/locations created_by
     await query('DELETE FROM users WHERE id = $1', [userId]);
 
     res.json({ message: 'Account deleted' });

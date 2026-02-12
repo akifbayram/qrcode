@@ -6,31 +6,31 @@ const router = Router();
 
 router.use(authenticate);
 
-async function verifyHomeMembership(homeId: string, userId: string): Promise<boolean> {
+async function verifyLocationMembership(locationId: string, userId: string): Promise<boolean> {
   const result = await query(
-    'SELECT id FROM home_members WHERE home_id = $1 AND user_id = $2',
-    [homeId, userId]
+    'SELECT id FROM location_members WHERE location_id = $1 AND user_id = $2',
+    [locationId, userId]
   );
   return result.rows.length > 0;
 }
 
-// GET /api/tag-colors?home_id=X — list all tag colors for a home
+// GET /api/tag-colors?location_id=X — list all tag colors for a location
 router.get('/', async (req, res) => {
   try {
-    const homeId = req.query.home_id as string;
-    if (!homeId) {
-      res.status(400).json({ error: 'home_id query parameter is required' });
+    const locationId = req.query.location_id as string;
+    if (!locationId) {
+      res.status(400).json({ error: 'location_id query parameter is required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
     const result = await query(
-      'SELECT id, home_id, tag, color, created_at, updated_at FROM tag_colors WHERE home_id = $1 ORDER BY tag',
-      [homeId]
+      'SELECT id, location_id, tag, color, created_at, updated_at FROM tag_colors WHERE location_id = $1 ORDER BY tag',
+      [locationId]
     );
 
     res.json(result.rows);
@@ -43,34 +43,34 @@ router.get('/', async (req, res) => {
 // PUT /api/tag-colors — upsert tag color
 router.put('/', async (req, res) => {
   try {
-    const { homeId, tag, color } = req.body;
+    const { locationId, tag, color } = req.body;
 
-    if (!homeId || !tag) {
-      res.status(400).json({ error: 'homeId and tag are required' });
+    if (!locationId || !tag) {
+      res.status(400).json({ error: 'locationId and tag are required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
     // If color is empty, remove the tag color
     if (!color) {
       await query(
-        'DELETE FROM tag_colors WHERE home_id = $1 AND tag = $2',
-        [homeId, tag]
+        'DELETE FROM tag_colors WHERE location_id = $1 AND tag = $2',
+        [locationId, tag]
       );
       res.json({ deleted: true });
       return;
     }
 
     const result = await query(
-      `INSERT INTO tag_colors (home_id, tag, color)
+      `INSERT INTO tag_colors (location_id, tag, color)
        VALUES ($1, $2, $3)
-       ON CONFLICT (home_id, tag) DO UPDATE SET color = $3, updated_at = now()
-       RETURNING id, home_id, tag, color, created_at, updated_at`,
-      [homeId, tag, color]
+       ON CONFLICT (location_id, tag) DO UPDATE SET color = $3, updated_at = now()
+       RETURNING id, location_id, tag, color, created_at, updated_at`,
+      [locationId, tag, color]
     );
 
     res.json(result.rows[0]);
@@ -80,25 +80,25 @@ router.put('/', async (req, res) => {
   }
 });
 
-// DELETE /api/tag-colors/:tag?home_id=X — remove a tag color
+// DELETE /api/tag-colors/:tag?location_id=X — remove a tag color
 router.delete('/:tag', async (req, res) => {
   try {
     const tag = req.params.tag;
-    const homeId = req.query.home_id as string;
+    const locationId = req.query.location_id as string;
 
-    if (!homeId) {
-      res.status(400).json({ error: 'home_id query parameter is required' });
+    if (!locationId) {
+      res.status(400).json({ error: 'location_id query parameter is required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
     await query(
-      'DELETE FROM tag_colors WHERE home_id = $1 AND tag = $2',
-      [homeId, tag]
+      'DELETE FROM tag_colors WHERE location_id = $1 AND tag = $2',
+      [locationId, tag]
     );
 
     res.json({ deleted: true });

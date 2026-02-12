@@ -10,13 +10,13 @@ function notifyTagColorsChanged() {
 }
 
 export function useTagColors() {
-  const { activeHomeId, token } = useAuth();
+  const { activeLocationId, token } = useAuth();
   const [rawTagColors, setRawTagColors] = useState<TagColor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   useEffect(() => {
-    if (!token || !activeHomeId) {
+    if (!token || !activeLocationId) {
       setRawTagColors([]);
       setIsLoading(false);
       return;
@@ -25,7 +25,7 @@ export function useTagColors() {
     let cancelled = false;
     setIsLoading(true);
 
-    apiFetch<TagColor[]>(`/api/tag-colors?home_id=${encodeURIComponent(activeHomeId)}`)
+    apiFetch<TagColor[]>(`/api/tag-colors?location_id=${encodeURIComponent(activeLocationId)}`)
       .then((data) => {
         if (!cancelled) setRawTagColors(data);
       })
@@ -37,7 +37,7 @@ export function useTagColors() {
       });
 
     return () => { cancelled = true; };
-  }, [token, activeHomeId, refreshCounter]);
+  }, [token, activeLocationId, refreshCounter]);
 
   useEffect(() => {
     const handler = () => setRefreshCounter((c) => c + 1);
@@ -56,16 +56,16 @@ export function useTagColors() {
   return { tagColors, isLoading };
 }
 
-export async function setTagColor(homeId: string, tag: string, color: string): Promise<void> {
+export async function setTagColor(locationId: string, tag: string, color: string): Promise<void> {
   await apiFetch('/api/tag-colors', {
     method: 'PUT',
-    body: { homeId, tag, color },
+    body: { locationId, tag, color },
   });
   notifyTagColorsChanged();
 }
 
-export async function removeTagColor(homeId: string, tag: string): Promise<void> {
-  await apiFetch(`/api/tag-colors/${encodeURIComponent(tag)}?home_id=${encodeURIComponent(homeId)}`, {
+export async function removeTagColor(locationId: string, tag: string): Promise<void> {
+  await apiFetch(`/api/tag-colors/${encodeURIComponent(tag)}?location_id=${encodeURIComponent(locationId)}`, {
     method: 'DELETE',
   });
   notifyTagColorsChanged();

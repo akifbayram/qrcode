@@ -7,11 +7,11 @@ const ELECTRIC_URL = process.env.ELECTRIC_URL || 'http://localhost:3000';
 
 router.use(authenticate);
 
-/** Verify user is a member of a home */
-async function verifyHomeMembership(homeId: string, userId: string): Promise<boolean> {
+/** Verify user is a member of a location */
+async function verifyLocationMembership(locationId: string, userId: string): Promise<boolean> {
   const result = await query(
-    'SELECT id FROM home_members WHERE home_id = $1 AND user_id = $2',
-    [homeId, userId]
+    'SELECT id FROM location_members WHERE location_id = $1 AND user_id = $2',
+    [locationId, userId]
   );
   return result.rows.length > 0;
 }
@@ -85,21 +85,21 @@ router.get('/noop', async (req, res) => {
   }
 });
 
-// GET /api/shapes/bins?home_id=X — proxy bins shape for a home
+// GET /api/shapes/bins?location_id=X — proxy bins shape for a location
 router.get('/bins', async (req, res) => {
   try {
-    const homeId = req.query.home_id as string;
-    if (!homeId) {
-      res.status(400).json({ error: 'home_id query parameter is required' });
+    const locationId = req.query.location_id as string;
+    if (!locationId) {
+      res.status(400).json({ error: 'location_id query parameter is required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
-    const shapePath = `/v1/shape?table=bins&where=home_id='${homeId}'`;
+    const shapePath = `/v1/shape?table=bins&where=location_id='${locationId}'`;
     await proxyToElectric(shapePath, req, res);
   } catch (err) {
     console.error('Shape bins proxy error:', err);
@@ -109,22 +109,22 @@ router.get('/bins', async (req, res) => {
   }
 });
 
-// GET /api/shapes/photos?home_id=X — proxy photos shape for a home
+// GET /api/shapes/photos?location_id=X — proxy photos shape for a location
 router.get('/photos', async (req, res) => {
   try {
-    const homeId = req.query.home_id as string;
-    if (!homeId) {
-      res.status(400).json({ error: 'home_id query parameter is required' });
+    const locationId = req.query.location_id as string;
+    if (!locationId) {
+      res.status(400).json({ error: 'location_id query parameter is required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
-    // Get all bin IDs for this home to filter photos
-    const binsResult = await query('SELECT id FROM bins WHERE home_id = $1', [homeId]);
+    // Get all bin IDs for this location to filter photos
+    const binsResult = await query('SELECT id FROM bins WHERE location_id = $1', [locationId]);
     const binIds = binsResult.rows.map(r => r.id);
 
     if (binIds.length === 0) {
@@ -145,49 +145,49 @@ router.get('/photos', async (req, res) => {
   }
 });
 
-// GET /api/shapes/homes — proxy homes shape for the user
-router.get('/homes', async (req, res) => {
+// GET /api/shapes/locations — proxy locations shape for the user
+router.get('/locations', async (req, res) => {
   try {
-    // Get home IDs the user belongs to
+    // Get location IDs the user belongs to
     const memberships = await query(
-      'SELECT home_id FROM home_members WHERE user_id = $1',
+      'SELECT location_id FROM location_members WHERE user_id = $1',
       [req.user!.id]
     );
 
-    const homeIds = memberships.rows.map(r => r.home_id);
+    const locationIds = memberships.rows.map(r => r.location_id);
 
-    if (homeIds.length === 0) {
-      const shapePath = `/v1/shape?table=homes&where=id='00000000-0000-0000-0000-000000000000'`;
+    if (locationIds.length === 0) {
+      const shapePath = `/v1/shape?table=locations&where=id='00000000-0000-0000-0000-000000000000'`;
       await proxyToElectric(shapePath, req, res);
       return;
     }
 
-    const inClause = homeIds.map(id => `'${id}'`).join(',');
-    const shapePath = `/v1/shape?table=homes&where=id IN (${inClause})`;
+    const inClause = locationIds.map(id => `'${id}'`).join(',');
+    const shapePath = `/v1/shape?table=locations&where=id IN (${inClause})`;
     await proxyToElectric(shapePath, req, res);
   } catch (err) {
-    console.error('Shape homes proxy error:', err);
+    console.error('Shape locations proxy error:', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to proxy homes shape' });
+      res.status(500).json({ error: 'Failed to proxy locations shape' });
     }
   }
 });
 
-// GET /api/shapes/tag-colors?home_id=X — proxy tag_colors shape for a home
+// GET /api/shapes/tag-colors?location_id=X — proxy tag_colors shape for a location
 router.get('/tag-colors', async (req, res) => {
   try {
-    const homeId = req.query.home_id as string;
-    if (!homeId) {
-      res.status(400).json({ error: 'home_id query parameter is required' });
+    const locationId = req.query.location_id as string;
+    if (!locationId) {
+      res.status(400).json({ error: 'location_id query parameter is required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
-    const shapePath = `/v1/shape?table=tag_colors&where=home_id='${homeId}'`;
+    const shapePath = `/v1/shape?table=tag_colors&where=location_id='${locationId}'`;
     await proxyToElectric(shapePath, req, res);
   } catch (err) {
     console.error('Shape tag-colors proxy error:', err);
@@ -197,26 +197,26 @@ router.get('/tag-colors', async (req, res) => {
   }
 });
 
-// GET /api/shapes/home-members?home_id=X — proxy home_members shape
-router.get('/home-members', async (req, res) => {
+// GET /api/shapes/location-members?location_id=X — proxy location_members shape
+router.get('/location-members', async (req, res) => {
   try {
-    const homeId = req.query.home_id as string;
-    if (!homeId) {
-      res.status(400).json({ error: 'home_id query parameter is required' });
+    const locationId = req.query.location_id as string;
+    if (!locationId) {
+      res.status(400).json({ error: 'location_id query parameter is required' });
       return;
     }
 
-    if (!await verifyHomeMembership(homeId, req.user!.id)) {
-      res.status(403).json({ error: 'Not a member of this home' });
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this location' });
       return;
     }
 
-    const shapePath = `/v1/shape?table=home_members&where=home_id='${homeId}'`;
+    const shapePath = `/v1/shape?table=location_members&where=location_id='${locationId}'`;
     await proxyToElectric(shapePath, req, res);
   } catch (err) {
-    console.error('Shape home-members proxy error:', err);
+    console.error('Shape location-members proxy error:', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to proxy home-members shape' });
+      res.status(500).json({ error: 'Failed to proxy location-members shape' });
     }
   }
 });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Plus, LogIn, Users, Crown, Pencil, Trash2 } from 'lucide-react';
+import { MapPin, Plus, LogIn, Users, Crown, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,44 +16,44 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
-import { useHomeList, createHome, joinHome, updateHome, deleteHome } from './useHomes';
-import { HomeMembersDialog } from './HomeMembersDialog';
+import { useLocationList, createLocation, joinLocation, updateLocation, deleteLocation } from './useLocations';
+import { LocationMembersDialog } from './LocationMembersDialog';
 
-export function HomesPage() {
-  const { user, setActiveHomeId, activeHomeId } = useAuth();
-  const { homes, isLoading } = useHomeList();
+export function LocationsPage() {
+  const { user, setActiveLocationId, activeLocationId } = useAuth();
+  const { locations, isLoading } = useLocationList();
   const { showToast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
-  const [membersHomeId, setMembersHomeId] = useState<string | null>(null);
+  const [membersLocationId, setMembersLocationId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
 
   // Rename state
-  const [renameHomeId, setRenameHomeId] = useState<string | null>(null);
+  const [renameLocationId, setRenameLocationId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
 
   // Delete state
-  const [deleteHomeId, setDeleteHomeId] = useState<string | null>(null);
+  const [deleteLocationId, setDeleteLocationId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const deleteHomeName = homes.find((h) => h.id === deleteHomeId)?.name ?? '';
+  const deleteLocationName = locations.find((h) => h.id === deleteLocationId)?.name ?? '';
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const home = await createHome(newName.trim());
-      setActiveHomeId(home.id);
+      const location = await createLocation(newName.trim());
+      setActiveLocationId(location.id);
       setNewName('');
       setCreateOpen(false);
-      showToast({ message: `Created "${home.name}"` });
+      showToast({ message: `Created "${location.name}"` });
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Failed to create home' });
+      showToast({ message: err instanceof Error ? err.message : 'Failed to create location' });
     } finally {
       setCreating(false);
     }
@@ -64,51 +64,51 @@ export function HomesPage() {
     if (!inviteCode.trim()) return;
     setJoining(true);
     try {
-      const home = await joinHome(inviteCode.trim());
-      setActiveHomeId(home.id);
+      const location = await joinLocation(inviteCode.trim());
+      setActiveLocationId(location.id);
       setInviteCode('');
       setJoinOpen(false);
-      showToast({ message: `Joined "${home.name}"` });
+      showToast({ message: `Joined "${location.name}"` });
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Failed to join home' });
+      showToast({ message: err instanceof Error ? err.message : 'Failed to join location' });
     } finally {
       setJoining(false);
     }
   }
 
-  function startRename(homeId: string, currentName: string) {
-    setRenameHomeId(homeId);
+  function startRename(locationId: string, currentName: string) {
+    setRenameLocationId(locationId);
     setRenameValue(currentName);
   }
 
   async function handleRename(e: React.FormEvent) {
     e.preventDefault();
-    if (!renameHomeId || !renameValue.trim()) return;
+    if (!renameLocationId || !renameValue.trim()) return;
     setRenaming(true);
     try {
-      await updateHome(renameHomeId, renameValue.trim());
-      setRenameHomeId(null);
-      showToast({ message: 'Home renamed' });
+      await updateLocation(renameLocationId, renameValue.trim());
+      setRenameLocationId(null);
+      showToast({ message: 'Location renamed' });
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Failed to rename home' });
+      showToast({ message: err instanceof Error ? err.message : 'Failed to rename location' });
     } finally {
       setRenaming(false);
     }
   }
 
   async function handleDelete() {
-    if (!deleteHomeId) return;
+    if (!deleteLocationId) return;
     setDeleting(true);
     try {
-      await deleteHome(deleteHomeId);
-      if (activeHomeId === deleteHomeId) {
-        const remaining = homes.filter((h) => h.id !== deleteHomeId);
-        setActiveHomeId(remaining.length > 0 ? remaining[0].id : null);
+      await deleteLocation(deleteLocationId);
+      if (activeLocationId === deleteLocationId) {
+        const remaining = locations.filter((h) => h.id !== deleteLocationId);
+        setActiveLocationId(remaining.length > 0 ? remaining[0].id : null);
       }
-      setDeleteHomeId(null);
-      showToast({ message: 'Home deleted' });
+      setDeleteLocationId(null);
+      showToast({ message: 'Location deleted' });
     } catch (err) {
-      showToast({ message: err instanceof Error ? err.message : 'Failed to delete home' });
+      showToast({ message: err instanceof Error ? err.message : 'Failed to delete location' });
     } finally {
       setDeleting(false);
     }
@@ -118,7 +118,7 @@ export function HomesPage() {
     <div className="flex flex-col gap-4 px-5 pt-6 pb-2">
       <div className="flex items-center justify-between">
         <h1 className="text-[34px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
-          Homes
+          Locations
         </h1>
         <div className="flex gap-2">
           <Button
@@ -134,7 +134,7 @@ export function HomesPage() {
             onClick={() => setCreateOpen(true)}
             size="icon"
             className="h-10 w-10 rounded-full"
-            aria-label="Create home"
+            aria-label="Create location"
           >
             <Plus className="h-5 w-5" />
           </Button>
@@ -150,45 +150,45 @@ export function HomesPage() {
             </div>
           ))}
         </div>
-      ) : homes.length === 0 ? (
+      ) : locations.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-5 py-24 text-[var(--text-tertiary)]">
-          <Home className="h-16 w-16 opacity-40" />
+          <MapPin className="h-16 w-16 opacity-40" />
           <div className="text-center space-y-1.5">
-            <p className="text-[17px] font-semibold text-[var(--text-secondary)]">No homes yet</p>
-            <p className="text-[13px]">Create a home or join one with an invite code</p>
+            <p className="text-[17px] font-semibold text-[var(--text-secondary)]">No locations yet</p>
+            <p className="text-[13px]">Create a location or join one with an invite code</p>
           </div>
           <div className="flex gap-2.5">
             <Button onClick={() => setJoinOpen(true)} variant="outline" className="rounded-[var(--radius-full)]">
               <LogIn className="h-4 w-4 mr-2" />
-              Join Home
+              Join Location
             </Button>
             <Button onClick={() => setCreateOpen(true)} className="rounded-[var(--radius-full)]">
               <Plus className="h-4 w-4 mr-2" />
-              Create Home
+              Create Location
             </Button>
           </div>
         </div>
       ) : (
         <div className="space-y-3">
-          {homes.map((home) => {
-            const isActive = home.id === activeHomeId;
-            const isOwner = home.created_by === user?.id || (home as Record<string, unknown>).role === 'owner';
+          {locations.map((loc) => {
+            const isActive = loc.id === activeLocationId;
+            const isOwner = loc.created_by === user?.id || (loc as Record<string, unknown>).role === 'owner';
             return (
               <Card
-                key={home.id}
+                key={loc.id}
                 className={isActive ? 'ring-2 ring-[var(--accent)]' : ''}
               >
                 <CardContent className="py-4">
                   <button
                     className="w-full text-left"
-                    onClick={() => setActiveHomeId(home.id)}
+                    onClick={() => setActiveLocationId(loc.id)}
                   >
                     <div className="flex items-center gap-3">
-                      <Home className="h-5 w-5 text-[var(--text-secondary)] shrink-0" />
+                      <MapPin className="h-5 w-5 text-[var(--text-secondary)] shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-[15px] font-semibold text-[var(--text-primary)] truncate">
-                            {home.name}
+                            {loc.name}
                           </span>
                           {isOwner && (
                             <Badge variant="secondary" className="text-[11px] gap-1 py-0">
@@ -206,7 +206,7 @@ export function HomesPage() {
                           variant="ghost"
                           size="sm"
                           className="rounded-[var(--radius-full)] h-8 px-3"
-                          onClick={() => setMembersHomeId(home.id)}
+                          onClick={() => setMembersLocationId(loc.id)}
                         >
                           <Users className="h-3.5 w-3.5 mr-1.5" />
                           Members
@@ -217,8 +217,8 @@ export function HomesPage() {
                               variant="ghost"
                               size="icon"
                               className="rounded-full h-8 w-8"
-                              onClick={() => startRename(home.id, home.name)}
-                              aria-label="Rename home"
+                              onClick={() => startRename(loc.id, loc.name)}
+                              aria-label="Rename location"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -226,8 +226,8 @@ export function HomesPage() {
                               variant="ghost"
                               size="icon"
                               className="rounded-full h-8 w-8 text-[var(--destructive)]"
-                              onClick={() => setDeleteHomeId(home.id)}
-                              aria-label="Delete home"
+                              onClick={() => setDeleteLocationId(loc.id)}
+                              aria-label="Delete location"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -243,20 +243,20 @@ export function HomesPage() {
         </div>
       )}
 
-      {/* Create Home Dialog */}
+      {/* Create Location Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Home</DialogTitle>
+            <DialogTitle>Create Location</DialogTitle>
             <DialogDescription>
-              A home is a shared space where members can manage bins together.
+              A location is a shared space where members can manage bins together.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="home-name">Name</Label>
+              <Label htmlFor="location-name">Name</Label>
               <Input
-                id="home-name"
+                id="location-name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g., My House, Office"
@@ -276,13 +276,13 @@ export function HomesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Join Home Dialog */}
+      {/* Join Location Dialog */}
       <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Join Home</DialogTitle>
+            <DialogTitle>Join Location</DialogTitle>
             <DialogDescription>
-              Enter the invite code shared by a home owner to join.
+              Enter the invite code shared by a location owner to join.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleJoin} className="space-y-5">
@@ -309,20 +309,20 @@ export function HomesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Rename Home Dialog */}
-      <Dialog open={!!renameHomeId} onOpenChange={(open) => !open && setRenameHomeId(null)}>
+      {/* Rename Location Dialog */}
+      <Dialog open={!!renameLocationId} onOpenChange={(open) => !open && setRenameLocationId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename Home</DialogTitle>
+            <DialogTitle>Rename Location</DialogTitle>
             <DialogDescription>
-              Enter a new name for this home.
+              Enter a new name for this location.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRename} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="rename-home">Name</Label>
+              <Label htmlFor="rename-location">Name</Label>
               <Input
-                id="rename-home"
+                id="rename-location"
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 autoFocus
@@ -330,7 +330,7 @@ export function HomesPage() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setRenameHomeId(null)}>
+              <Button type="button" variant="ghost" onClick={() => setRenameLocationId(null)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={!renameValue.trim() || renaming}>
@@ -341,17 +341,17 @@ export function HomesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Home Dialog */}
-      <Dialog open={!!deleteHomeId} onOpenChange={(open) => !open && setDeleteHomeId(null)}>
+      {/* Delete Location Dialog */}
+      <Dialog open={!!deleteLocationId} onOpenChange={(open) => !open && setDeleteLocationId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Home?</DialogTitle>
+            <DialogTitle>Delete Location?</DialogTitle>
             <DialogDescription>
-              This will permanently delete &quot;{deleteHomeName}&quot; and all its bins and photos. This cannot be undone.
+              This will permanently delete &quot;{deleteLocationName}&quot; and all its bins and photos. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteHomeId(null)} className="rounded-[var(--radius-full)]">
+            <Button variant="ghost" onClick={() => setDeleteLocationId(null)} className="rounded-[var(--radius-full)]">
               Cancel
             </Button>
             <Button
@@ -366,11 +366,11 @@ export function HomesPage() {
       </Dialog>
 
       {/* Members Dialog */}
-      {membersHomeId && (
-        <HomeMembersDialog
-          homeId={membersHomeId}
-          open={!!membersHomeId}
-          onOpenChange={(open) => !open && setMembersHomeId(null)}
+      {membersLocationId && (
+        <LocationMembersDialog
+          locationId={membersLocationId}
+          open={!!membersLocationId}
+          onOpenChange={(open) => !open && setMembersLocationId(null)}
         />
       )}
     </div>

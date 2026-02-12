@@ -6,7 +6,7 @@ const STORAGE_PREFIX = 'qrbin-onboarding-';
 interface OnboardingData {
   completed: boolean;
   step: number;
-  homeId?: string;
+  locationId?: string;
 }
 
 function getKey(userId: string) {
@@ -42,9 +42,9 @@ export function useOnboarding() {
   return {
     isOnboarding: !data.completed,
     step: data.step,
-    homeId: data.homeId,
-    advanceWithHome: useCallback((id: string) => {
-      update((prev) => ({ ...prev, homeId: id, step: prev.step + 1 }));
+    locationId: data.locationId,
+    advanceWithLocation: useCallback((id: string) => {
+      update((prev) => ({ ...prev, locationId: id, step: prev.step + 1 }));
     }, [update]),
     complete: useCallback(() => {
       update((prev) => ({ ...prev, completed: true }));

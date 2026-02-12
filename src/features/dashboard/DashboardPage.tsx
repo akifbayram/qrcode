@@ -1,21 +1,21 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, ScanLine, Home, ChevronRight } from 'lucide-react';
+import { ScanLine, MapPin, ChevronRight, Plus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/auth';
 import { useDashboard } from './useDashboard';
 import { BinCard } from '@/features/bins/BinCard';
+import { BinCreateDialog } from '@/features/bins/BinCreateDialog';
 
 function StatCard({
   label,
   value,
-  icon: Icon,
   onClick,
 }: {
   label: string;
   value: number;
-  icon: React.ElementType;
   onClick?: () => void;
 }) {
   const Wrapper = onClick ? 'button' : 'div';
@@ -25,16 +25,11 @@ function StatCard({
         className="w-full text-left"
         {...(onClick ? { onClick } : {})}
       >
-        <CardContent className="flex items-center gap-3 py-4">
-          <div className="h-10 w-10 rounded-full bg-[var(--accent)] bg-opacity-10 flex items-center justify-center shrink-0">
-            <Icon className="h-5 w-5 text-[var(--accent)]" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[24px] font-bold text-[var(--text-primary)] leading-tight">
-              {value}
-            </p>
-            <p className="text-[13px] text-[var(--text-tertiary)]">{label}</p>
-          </div>
+        <CardContent className="py-3 px-4">
+          <p className="text-[24px] font-bold text-[var(--text-primary)] leading-tight">
+            {value}
+          </p>
+          <p className="text-[13px] text-[var(--text-tertiary)]">{label}</p>
         </CardContent>
       </Wrapper>
     </Card>
@@ -68,33 +63,34 @@ function SectionHeader({
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { activeHomeId } = useAuth();
+  const { activeLocationId } = useAuth();
   const { totalBins, totalItems, recentlyScanned, recentlyUpdated, isLoading } =
     useDashboard();
+  const [createOpen, setCreateOpen] = useState(false);
 
-  if (!activeHomeId) {
+  if (!activeLocationId) {
     return (
       <div className="flex flex-col gap-4 px-5 pt-6 pb-2">
         <h1 className="text-[34px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
-          Home
+          Dashboard
         </h1>
         <div className="flex flex-col items-center justify-center gap-5 py-24 text-[var(--text-tertiary)]">
-          <Home className="h-16 w-16 opacity-40" />
+          <MapPin className="h-16 w-16 opacity-40" />
           <div className="text-center space-y-1.5">
             <p className="text-[17px] font-semibold text-[var(--text-secondary)]">
-              No home selected
+              No location selected
             </p>
             <p className="text-[13px]">
-              Create or join a home to start organizing bins
+              Create or join a location to start organizing bins
             </p>
           </div>
           <Button
-            onClick={() => navigate('/homes')}
+            onClick={() => navigate('/locations')}
             variant="outline"
             className="rounded-[var(--radius-full)] mt-1"
           >
-            <Home className="h-4 w-4 mr-2" />
-            Manage Homes
+            <MapPin className="h-4 w-4 mr-2" />
+            Manage Locations
           </Button>
         </div>
       </div>
@@ -103,9 +99,19 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-6 pb-2">
-      <h1 className="text-[34px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
-        Home
-      </h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-[34px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
+          Dashboard
+        </h1>
+        <Button
+          onClick={() => setCreateOpen(true)}
+          size="icon"
+          className="h-10 w-10 rounded-full"
+          aria-label="Create bin"
+        >
+          <Plus className="h-5 w-5" />
+        </Button>
+      </div>
 
       {/* Stats */}
       {isLoading ? (
@@ -124,10 +130,9 @@ export function DashboardPage() {
           <StatCard
             label="Total Bins"
             value={totalBins}
-            icon={Package}
             onClick={() => navigate('/bins')}
           />
-          <StatCard label="Total Items" value={totalItems} icon={Package} />
+          <StatCard label="Total Items" value={totalItems} />
         </div>
       )}
 
@@ -166,6 +171,8 @@ export function DashboardPage() {
           </div>
         </div>
       )}
+
+      <BinCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }
