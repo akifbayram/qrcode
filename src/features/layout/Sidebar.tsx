@@ -1,19 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sun, Moon, Monitor, LogOut, Tags, ClipboardList, Settings } from 'lucide-react';
+import { LogOut, Tags, ClipboardList, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { navItems } from '@/lib/navItems';
 import { useAppSettings } from '@/lib/appSettings';
 import { useAuth } from '@/lib/auth';
 
-import type { ThemePreference } from '@/lib/theme';
-import { cycleThemePreference } from '@/lib/theme';
-
-interface SidebarProps {
-  preference: ThemePreference;
-  onSetThemePreference: (p: ThemePreference) => void;
-}
-
-export function Sidebar({ preference, onSetThemePreference }: SidebarProps) {
+export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { settings } = useAppSettings();
@@ -90,7 +82,7 @@ export function Sidebar({ preference, onSetThemePreference }: SidebarProps) {
         </button>
       </div>
 
-      {/* Bottom section: user info + theme toggle */}
+      {/* Bottom section: user info + settings + sign out */}
       <div className="px-5 py-4 border-t border-[var(--border-subtle)] space-y-1">
         {user && (
           <button
@@ -107,14 +99,6 @@ export function Sidebar({ preference, onSetThemePreference }: SidebarProps) {
             <span className="flex-1 truncate">{user.displayName || user.username}</span>
           </button>
         )}
-        <button
-          onClick={() => onSetThemePreference(cycleThemePreference(preference))}
-          aria-label={`Theme: ${preference}. Click to change.`}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] transition-colors w-full"
-        >
-          {preference === 'light' ? <Sun className="h-5 w-5" /> : preference === 'dark' ? <Moon className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
-          {preference === 'light' ? 'Light' : preference === 'dark' ? 'Dark' : 'Auto'}
-        </button>
         <button
           onClick={() => navigate('/settings')}
           aria-label="Settings"
