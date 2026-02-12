@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, Monitor, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2 } from 'lucide-react';
+import { Sun, Moon, Monitor, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ import { useTheme } from '@/lib/theme';
 import { useAppSettings } from '@/lib/appSettings';
 import { useAuth } from '@/lib/auth';
 import { useBinList } from '@/features/bins/useBins';
-import { useLocationList, createLocation, joinLocation } from '@/features/locations/useLocations';
+import { useLocationList, createLocation, joinLocation, updateLocation, deleteLocation } from '@/features/locations/useLocations';
 import { LocationMembersDialog } from '@/features/locations/LocationMembersDialog';
 import type { ExportData } from '@/types';
 import {
@@ -53,6 +53,16 @@ export function SettingsPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+
+  // Rename location state
+  const [renameLocationId, setRenameLocationId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
+
+  // Delete location state
+  const [deleteLocationId, setDeleteLocationId] = useState<string | null>(null);
+  const [deletingLocation, setDeletingLocation] = useState(false);
+  const deleteLocationName = locations.find((h) => h.id === deleteLocationId)?.name ?? '';
 
   // Delete account state
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -93,6 +103,39 @@ export function SettingsPage() {
       showToast({ message: err instanceof Error ? err.message : 'Failed to join location' });
     } finally {
       setJoining(false);
+    }
+  }
+
+  async function handleRenameLocation(e: React.FormEvent) {
+    e.preventDefault();
+    if (!renameLocationId || !renameValue.trim()) return;
+    setRenaming(true);
+    try {
+      await updateLocation(renameLocationId, renameValue.trim());
+      setRenameLocationId(null);
+      showToast({ message: 'Location renamed' });
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Failed to rename location' });
+    } finally {
+      setRenaming(false);
+    }
+  }
+
+  async function handleDeleteLocation() {
+    if (!deleteLocationId) return;
+    setDeletingLocation(true);
+    try {
+      await deleteLocation(deleteLocationId);
+      if (activeLocationId === deleteLocationId) {
+        const remaining = locations.filter((h) => h.id !== deleteLocationId);
+        setActiveLocationId(remaining.length > 0 ? remaining[0].id : null);
+      }
+      setDeleteLocationId(null);
+      showToast({ message: 'Location deleted' });
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Failed to delete location' });
+    } finally {
+      setDeletingLocation(false);
     }
   }
 
@@ -289,18 +332,42 @@ export function SettingsPage() {
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0 rounded-[var(--radius-full)] h-8 px-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMembersLocationId(loc.id);
-                      }}
-                    >
-                      <Users className="h-3.5 w-3.5 mr-1.5" />
-                      Members
-                    </Button>
+                    <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-[var(--radius-full)] h-8 px-3"
+                        onClick={() => setMembersLocationId(loc.id)}
+                      >
+                        <Users className="h-3.5 w-3.5 mr-1.5" />
+                        Members
+                      </Button>
+                      {isOwner && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full h-8 w-8"
+                            onClick={() => {
+                              setRenameLocationId(loc.id);
+                              setRenameValue(loc.name);
+                            }}
+                            aria-label="Rename location"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full h-8 w-8 text-[var(--destructive)]"
+                            onClick={() => setDeleteLocationId(loc.id)}
+                            aria-label="Delete location"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </button>
                 );
               })
@@ -590,6 +657,62 @@ export function SettingsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Location Dialog */}
+      <Dialog open={!!renameLocationId} onOpenChange={(open) => !open && setRenameLocationId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Location</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this location.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRenameLocation} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="rename-location">Name</Label>
+              <Input
+                id="rename-location"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setRenameLocationId(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!renameValue.trim() || renaming}>
+                {renaming ? 'Saving...' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Location Dialog */}
+      <Dialog open={!!deleteLocationId} onOpenChange={(open) => !open && setDeleteLocationId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Location?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete &quot;{deleteLocationName}&quot; and all its bins and photos. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteLocationId(null)} className="rounded-[var(--radius-full)]">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteLocation}
+              disabled={deletingLocation}
+              className="rounded-[var(--radius-full)] bg-[var(--destructive)] hover:opacity-90"
+            >
+              {deletingLocation ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

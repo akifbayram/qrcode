@@ -85,7 +85,7 @@ export function DashboardPage() {
             </p>
           </div>
           <Button
-            onClick={() => navigate('/locations')}
+            onClick={() => navigate('/settings')}
             variant="outline"
             className="rounded-[var(--radius-full)] mt-1"
           >

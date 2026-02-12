@@ -342,7 +342,7 @@ export function BinListPage() {
             </p>
             <p className="text-[13px]">Create or join a location to start organizing bins</p>
           </div>
-          <Button onClick={() => navigate('/locations')} variant="outline" className="rounded-[var(--radius-full)] mt-1">
+          <Button onClick={() => navigate('/settings')} variant="outline" className="rounded-[var(--radius-full)] mt-1">
             <MapPin className="h-4 w-4 mr-2" />
             Manage Locations
           </Button>
