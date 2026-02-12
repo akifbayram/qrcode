@@ -32,6 +32,9 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
   const [binTags, setBinTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const [binItems, setBinItems] = useState<string[]>([]);
+  const [itemInput, setItemInput] = useState('');
+  const itemInputRef = useRef<HTMLInputElement>(null);
   // Loading
   const [loading, setLoading] = useState(false);
   // Success animation after first bin creation
@@ -78,6 +81,7 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
         location: binLocation.trim() || undefined,
         color: binColor || undefined,
         tags: binTags.length > 0 ? binTags : undefined,
+        items: binItems.length > 0 ? binItems : undefined,
       });
       setShowSuccess(true);
     } catch (err) {
@@ -148,13 +152,14 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                 Name your location
               </h2>
               <p className="text-[14px] text-[var(--text-tertiary)] mb-6 leading-relaxed">
-                A location is where your bins live. You can invite others later.
+                A location groups your bins — it could be your home, a garage, an office, or any space you want to organize.
               </p>
               <Input
                 value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
+                onChange={(e) => setLocationName(e.target.value.slice(0, 50))}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleCreateLocation(); }}
                 placeholder="e.g., My House"
+                maxLength={50}
                 autoFocus
                 className="mb-4 text-center"
               />
@@ -192,6 +197,41 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                   onChange={(e) => setBinLocation(e.target.value)}
                   placeholder="Location (optional)"
                 />
+
+                {/* Items input */}
+                <div className="text-left">
+                  <label className="text-[13px] text-[var(--text-tertiary)] mb-1.5 block">Items</label>
+                  <div className="flex flex-wrap gap-1.5 rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2 focus-within:ring-2 focus-within:ring-[var(--accent)]">
+                    {binItems.map((item, i) => (
+                      <Badge key={i} variant="secondary" className="gap-1 pl-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setBinItems(binItems.filter((_, j) => j !== i))}
+                          className="mr-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                        {item}
+                      </Badge>
+                    ))}
+                    <input
+                      ref={itemInputRef}
+                      value={itemInput}
+                      onChange={(e) => setItemInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ',') && itemInput.trim()) {
+                          e.preventDefault();
+                          setBinItems([...binItems, itemInput.trim()]);
+                          setItemInput('');
+                        } else if (e.key === 'Backspace' && !itemInput && binItems.length > 0) {
+                          setBinItems(binItems.slice(0, -1));
+                        }
+                      }}
+                      placeholder={binItems.length === 0 ? 'Type and press Enter' : ''}
+                      className="h-6 min-w-[80px] flex-1 bg-transparent p-0 text-[15px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none"
+                    />
+                  </div>
+                </div>
 
                 {/* Color picker */}
                 <div className="text-left">
