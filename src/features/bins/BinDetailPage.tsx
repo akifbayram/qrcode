@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronDown, Pencil, Trash2, Printer, Save, Plus, Sparkles, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Pencil, Trash2, Printer, Save, Plus, Sparkles, Loader2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,6 +53,7 @@ export function BinDetailPage() {
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [qrExpanded, setQrExpanded] = useState(false);
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
+  const [aiSetupOpen, setAiSetupOpen] = useState(false);
 
   // AI analysis
   const { photos } = usePhotos(id);
@@ -152,6 +153,10 @@ export function BinDetailPage() {
   }
 
   function handleAnalyzeClick() {
+    if (!aiSettings) {
+      setAiSetupOpen(true);
+      return;
+    }
     if (photos.length === 1) {
       analyze(photos[0].id);
     } else if (photos.length > 1) {
@@ -170,7 +175,7 @@ export function BinDetailPage() {
     }
   }
 
-  const showAiButton = !!aiSettings && photos.length > 0 && !editing;
+  const showAiButton = photos.length > 0 && !editing;
 
   const hasNotes = !!bin.notes;
   const hasTags = bin.tags.length > 0;
@@ -526,6 +531,43 @@ export function BinDetailPage() {
               </button>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI setup guidance dialog */}
+      <Dialog open={aiSetupOpen} onOpenChange={setAiSetupOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set up AI Analysis</DialogTitle>
+            <DialogDescription>
+              AI can analyze your bin photos and suggest names, items, tags, and notes automatically. Connect an AI provider in Settings to get started.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="rounded-[var(--radius-md)] bg-[var(--bg-input)] p-3 space-y-2 text-[13px] text-[var(--text-secondary)]">
+              <p className="font-medium text-[var(--text-primary)]">Supported providers</p>
+              <ul className="space-y-1">
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shrink-0" />OpenAI (GPT-4o, GPT-4o mini)</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shrink-0" />Anthropic (Claude)</li>
+                <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shrink-0" />Local LLM (OpenAI-compatible)</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAiSetupOpen(false)} className="rounded-[var(--radius-full)]">
+              Later
+            </Button>
+            <Button
+              onClick={() => {
+                setAiSetupOpen(false);
+                navigate('/settings');
+              }}
+              className="rounded-[var(--radius-full)]"
+            >
+              <Settings className="h-4 w-4 mr-1.5" />
+              Go to Settings
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

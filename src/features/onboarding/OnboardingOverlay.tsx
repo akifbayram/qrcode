@@ -120,6 +120,12 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
 
   async function handleAnalyzePhoto() {
     if (!photo) return;
+    // If AI isn't configured, guide user to the setup section
+    if (!aiConfigured) {
+      setAiExpanded(true);
+      setAnalyzeError('Set up an AI provider below to analyze photos');
+      return;
+    }
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
@@ -358,21 +364,19 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                         <p className="text-[12px] text-[var(--text-tertiary)]">{(photo.size / 1024).toFixed(0)} KB</p>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {aiConfigured && (
-                          <button
-                            type="button"
-                            onClick={handleAnalyzePhoto}
-                            disabled={analyzing}
-                            title="Analyze with AI"
-                            className="p-1.5 rounded-full text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
-                          >
-                            {analyzing ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Sparkles className="h-4 w-4" />
-                            )}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={handleAnalyzePhoto}
+                          disabled={analyzing}
+                          title={aiConfigured ? 'Analyze with AI' : 'Set up AI to analyze photos'}
+                          className="p-1.5 rounded-full text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
+                        >
+                          {analyzing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </button>
                         <button
                           type="button"
                           onClick={handleRemovePhoto}

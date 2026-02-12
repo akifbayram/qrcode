@@ -75,14 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: { username, password, displayName },
     });
     localStorage.setItem('sanduk-token', data.token);
-    if (data.activeLocationId) {
-      localStorage.setItem('sanduk-active-location', data.activeLocationId);
-    }
+    // New registrations have no locations — clear any stale value from a previous session
+    localStorage.removeItem('sanduk-active-location');
     setState((s) => ({
       ...s,
       user: data.user,
       token: data.token,
-      activeLocationId: data.activeLocationId ?? s.activeLocationId,
+      activeLocationId: null,
     }));
   }, []);
 
