@@ -19,7 +19,7 @@ import { useBin, updateBin, deleteBin, restoreBin, useAllTags } from './useBins'
 import { resolveIcon } from '@/lib/iconMap';
 import { getColorPreset } from '@/lib/colorPalette';
 import { PhotoGallery } from '@/features/photos/PhotoGallery';
-import { usePhotos, getPhotoUrl } from '@/features/photos/usePhotos';
+import { usePhotos } from '@/features/photos/usePhotos';
 import { useAiSettings } from '@/features/ai/useAiSettings';
 import { useAiAnalysis } from '@/features/ai/useAiAnalysis';
 import { AiSuggestionsPanel } from '@/features/ai/AiSuggestionsPanel';
@@ -52,13 +52,12 @@ export function BinDetailPage() {
   const [quickAddValue, setQuickAddValue] = useState('');
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [qrExpanded, setQrExpanded] = useState(false);
-  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
   const [aiSetupOpen, setAiSetupOpen] = useState(false);
 
   // AI analysis
   const { photos } = usePhotos(id);
   const { settings: aiSettings } = useAiSettings();
-  const { suggestions, isAnalyzing, error: aiError, analyze, clearSuggestions } = useAiAnalysis();
+  const { suggestions, isAnalyzing, error: aiError, analyzeMultiple, clearSuggestions } = useAiAnalysis();
 
   if (isLoading || bin === undefined) {
     return (
@@ -157,10 +156,8 @@ export function BinDetailPage() {
       setAiSetupOpen(true);
       return;
     }
-    if (photos.length === 1) {
-      analyze(photos[0].id);
-    } else if (photos.length > 1) {
-      setPhotoPickerOpen(true);
+    if (photos.length > 0) {
+      analyzeMultiple(photos.map((p) => p.id));
     }
   }
 
@@ -500,37 +497,6 @@ export function BinDetailPage() {
               Delete
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Photo picker for AI analysis */}
-      <Dialog open={photoPickerOpen} onOpenChange={setPhotoPickerOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Choose a photo to analyze</DialogTitle>
-            <DialogDescription>
-              Select which photo the AI should analyze for bin suggestions.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {photos.map((photo) => (
-              <button
-                key={photo.id}
-                type="button"
-                onClick={() => {
-                  setPhotoPickerOpen(false);
-                  analyze(photo.id);
-                }}
-                className="block w-full aspect-square rounded-[var(--radius-sm)] overflow-hidden bg-[var(--bg-input)] hover:ring-2 hover:ring-[var(--accent)] transition-all"
-              >
-                <img
-                  src={getPhotoUrl(photo.id)}
-                  alt={photo.filename}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
         </DialogContent>
       </Dialog>
 

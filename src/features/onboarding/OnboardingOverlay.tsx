@@ -10,7 +10,7 @@ import { createLocation } from '@/features/locations/useLocations';
 import { addBin } from '@/features/bins/useBins';
 import { addPhoto } from '@/features/photos/usePhotos';
 import { compressImage } from '@/features/photos/compressImage';
-import { analyzeImageFile } from '@/features/ai/useAiAnalysis';
+import { analyzeImageFiles, MAX_AI_PHOTOS } from '@/features/ai/useAiAnalysis';
 import { useAiSettings, saveAiSettings, testAiConnection } from '@/features/ai/useAiSettings';
 import { COLOR_PALETTE } from '@/lib/colorPalette';
 import type { AiProvider } from '@/types';
@@ -53,8 +53,8 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
   const [itemInput, setItemInput] = useState('');
   const itemInputRef = useRef<HTMLInputElement>(null);
   // Photo state
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // AI analysis state
   const [analyzing, setAnalyzing] = useState(false);
@@ -94,32 +94,34 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  // Clean up photo preview URL
+  // Clean up photo preview URLs
   useEffect(() => {
     return () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      photoPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [photoPreview]);
+  }, [photoPreviews]);
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setAnalyzeError(null);
-  }
-
-  function handleRemovePhoto() {
-    setPhoto(null);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoPreview(null);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newFiles = Array.from(files).slice(0, MAX_AI_PHOTOS - photos.length);
+    if (newFiles.length === 0) return;
+    const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
+    setPhotos((prev) => [...prev, ...newFiles]);
+    setPhotoPreviews((prev) => [...prev, ...newPreviews]);
     setAnalyzeError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
+  function handleRemovePhoto(index: number) {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+    setAnalyzeError(null);
+  }
+
   async function handleAnalyzePhoto() {
-    if (!photo) return;
+    if (photos.length === 0) return;
     // If AI isn't configured, guide user to the setup section
     if (!aiConfigured) {
       setAiExpanded(true);
@@ -129,16 +131,20 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
-      const compressed = await compressImage(photo);
-      const file = compressed instanceof File
-        ? compressed
-        : new File([compressed], photo.name, { type: compressed.type || 'image/jpeg' });
-      const suggestions = await analyzeImageFile(file);
+      const compressedFiles = await Promise.all(
+        photos.map(async (p) => {
+          const compressed = await compressImage(p);
+          return compressed instanceof File
+            ? compressed
+            : new File([compressed], p.name, { type: compressed.type || 'image/jpeg' });
+        })
+      );
+      const suggestions = await analyzeImageFiles(compressedFiles);
       if (suggestions.name) setBinName(suggestions.name);
       if (suggestions.items?.length) setBinItems(suggestions.items);
       if (suggestions.tags?.length) setBinTags(suggestions.tags.map(t => t.toLowerCase()));
     } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze photo');
+      setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze photos');
     } finally {
       setAnalyzing(false);
     }
@@ -215,13 +221,13 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
         items: binItems.length > 0 ? binItems : undefined,
       });
 
-      // Upload photo if selected (non-blocking — bin already created)
-      if (photo) {
+      // Upload photos if selected (non-blocking — bin already created)
+      for (const p of photos) {
         try {
-          const compressed = await compressImage(photo);
+          const compressed = await compressImage(p);
           const file = compressed instanceof File
             ? compressed
-            : new File([compressed], photo.name, { type: compressed.type || 'image/jpeg' });
+            : new File([compressed], p.name, { type: compressed.type || 'image/jpeg' });
           await addPhoto(binId, file);
         } catch {
           // Photo upload failure is non-blocking
@@ -338,10 +344,11 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     capture="environment"
+                    multiple
                     onChange={handlePhotoSelect}
                     className="hidden"
                   />
-                  {!photo ? (
+                  {photos.length === 0 ? (
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
@@ -351,40 +358,47 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                       Add Photo
                     </button>
                   ) : (
-                    <div className="flex items-center gap-3 rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2">
-                      {photoPreview && (
-                        <img
-                          src={photoPreview}
-                          alt="Preview"
-                          className="h-16 w-16 rounded-[var(--radius-sm)] object-cover flex-shrink-0"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-[var(--text-primary)] truncate">{photo.name}</p>
-                        <p className="text-[12px] text-[var(--text-tertiary)]">{(photo.size / 1024).toFixed(0)} KB</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 overflow-x-auto rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2">
+                        {photoPreviews.map((preview, i) => (
+                          <div key={i} className="relative shrink-0">
+                            <img
+                              src={preview}
+                              alt={`Preview ${i + 1}`}
+                              className="h-14 w-14 rounded-[var(--radius-sm)] object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePhoto(i)}
+                              className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-[var(--bg-elevated)] border border-[var(--border)] flex items-center justify-center shadow-sm hover:bg-[var(--destructive)] hover:text-white transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                        {photos.length < MAX_AI_PHOTOS && (
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="h-14 w-14 shrink-0 flex items-center justify-center rounded-[var(--radius-sm)] border-2 border-dashed border-[var(--border)] text-[var(--text-tertiary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                          >
+                            <Camera className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={handleAnalyzePhoto}
-                          disabled={analyzing}
-                          title={aiConfigured ? 'Analyze with AI' : 'Set up AI to analyze photos'}
-                          className="p-1.5 rounded-full text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
-                        >
-                          {analyzing ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleRemovePhoto}
-                          className="p-1.5 rounded-full text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAnalyzePhoto}
+                        disabled={analyzing}
+                        className="flex items-center gap-1.5 text-[13px] text-[var(--accent)] hover:opacity-80 transition-opacity disabled:opacity-50"
+                      >
+                        {analyzing ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        {analyzing ? 'Analyzing...' : `Analyze with AI${photos.length > 1 ? ` (${photos.length})` : ''}`}
+                      </button>
                     </div>
                   )}
                   {analyzeError && (
@@ -517,8 +531,8 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                       <div className="flex items-center gap-1.5 text-[12px] text-[var(--accent)]">
                         <Check className="h-3.5 w-3.5" />
                         <span>AI configured</span>
-                        {photo && (
-                          <span className="text-[var(--text-tertiary)]">— tap <Sparkles className="h-3 w-3 inline" /> on photo to analyze</span>
+                        {photos.length > 0 && (
+                          <span className="text-[var(--text-tertiary)]">— tap <Sparkles className="h-3 w-3 inline" /> to analyze</span>
                         )}
                       </div>
                     ) : (

@@ -1,7 +1,8 @@
-const SYSTEM_PROMPT = `You are analyzing a photo of physical storage bin contents for an inventory system.
-Examine the image and provide:
+const SYSTEM_PROMPT = `You are analyzing photos of physical storage bin contents for an inventory system.
+You may receive one or multiple photos of the same bin from different angles.
+Examine all images and provide:
 1. A short, descriptive name for this bin (2-5 words)
-2. A list of distinct items visible in the image
+2. A list of distinct items visible across all images
 3. Category tags that describe the type of contents (e.g., "tools", "electronics")
 4. Brief notes about the contents or organization
 
@@ -22,6 +23,11 @@ export interface AiSuggestionsResult {
   items: string[];
   tags: string[];
   notes: string;
+}
+
+export interface ImageInput {
+  base64: string;
+  mimeType: string;
 }
 
 type AiErrorCode = 'INVALID_KEY' | 'RATE_LIMITED' | 'MODEL_NOT_FOUND' | 'INVALID_RESPONSE' | 'NETWORK_ERROR' | 'PROVIDER_ERROR';
@@ -82,11 +88,19 @@ function validateSuggestions(raw: unknown): AiSuggestionsResult {
 
 async function callOpenAiCompatible(
   config: AiProviderConfig,
-  imageBase64: string,
-  mimeType: string
+  images: ImageInput[]
 ): Promise<AiSuggestionsResult> {
   const baseUrl = config.endpointUrl || 'https://api.openai.com/v1';
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+
+  const imageBlocks = images.map((img) => ({
+    type: 'image_url' as const,
+    image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+  }));
+
+  const userText = images.length > 1
+    ? `Analyze the contents of this storage bin (${images.length} photos).`
+    : 'Analyze the contents of this storage bin.';
 
   let res: Response;
   try {
@@ -98,18 +112,15 @@ async function callOpenAiCompatible(
       },
       body: JSON.stringify({
         model: config.model,
-        max_tokens: 1000,
+        max_tokens: images.length > 1 ? 1500 : 1000,
         temperature: 0.3,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           {
             role: 'user',
             content: [
-              {
-                type: 'image_url',
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-              },
-              { type: 'text', text: 'Analyze the contents of this storage bin.' },
+              ...imageBlocks,
+              { type: 'text', text: userText },
             ],
           },
         ],
@@ -140,11 +151,23 @@ async function callOpenAiCompatible(
 
 async function callAnthropic(
   config: AiProviderConfig,
-  imageBase64: string,
-  mimeType: string
+  images: ImageInput[]
 ): Promise<AiSuggestionsResult> {
   const baseUrl = config.endpointUrl || 'https://api.anthropic.com';
   const url = `${baseUrl.replace(/\/+$/, '')}/v1/messages`;
+
+  const imageBlocks = images.map((img) => ({
+    type: 'image' as const,
+    source: {
+      type: 'base64' as const,
+      media_type: img.mimeType,
+      data: img.base64,
+    },
+  }));
+
+  const userText = images.length > 1
+    ? `Analyze the contents of this storage bin (${images.length} photos).`
+    : 'Analyze the contents of this storage bin.';
 
   let res: Response;
   try {
@@ -157,22 +180,15 @@ async function callAnthropic(
       },
       body: JSON.stringify({
         model: config.model,
-        max_tokens: 1000,
+        max_tokens: images.length > 1 ? 1500 : 1000,
         temperature: 0.3,
         system: SYSTEM_PROMPT,
         messages: [
           {
             role: 'user',
             content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mimeType,
-                  data: imageBase64,
-                },
-              },
-              { type: 'text', text: 'Analyze the contents of this storage bin.' },
+              ...imageBlocks,
+              { type: 'text', text: userText },
             ],
           },
         ],
@@ -202,15 +218,22 @@ async function callAnthropic(
   }
 }
 
+export async function analyzeImages(
+  config: AiProviderConfig,
+  images: ImageInput[]
+): Promise<AiSuggestionsResult> {
+  if (config.provider === 'anthropic') {
+    return callAnthropic(config, images);
+  }
+  return callOpenAiCompatible(config, images);
+}
+
 export async function analyzeImage(
   config: AiProviderConfig,
   imageBase64: string,
   mimeType: string
 ): Promise<AiSuggestionsResult> {
-  if (config.provider === 'anthropic') {
-    return callAnthropic(config, imageBase64, mimeType);
-  }
-  return callOpenAiCompatible(config, imageBase64, mimeType);
+  return analyzeImages(config, [{ base64: imageBase64, mimeType }]);
 }
 
 export async function testConnection(config: AiProviderConfig): Promise<void> {

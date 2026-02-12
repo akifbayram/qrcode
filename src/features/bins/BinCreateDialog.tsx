@@ -20,7 +20,7 @@ import { ColorPicker } from './ColorPicker';
 import { addBin, useAllTags } from './useBins';
 import { useAuth } from '@/lib/auth';
 import { useAiSettings } from '@/features/ai/useAiSettings';
-import { analyzeImageFile } from '@/features/ai/useAiAnalysis';
+import { analyzeImageFiles, MAX_AI_PHOTOS } from '@/features/ai/useAiAnalysis';
 import { AiSuggestionsPanel } from '@/features/ai/AiSuggestionsPanel';
 import { compressImage } from '@/features/photos/compressImage';
 import { addPhoto } from '@/features/photos/usePhotos';
@@ -49,19 +49,19 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
   const [color, setColor] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<AiSuggestions | null>(null);
   const [aiSetupOpen, setAiSetupOpen] = useState(false);
 
-  // Revoke ObjectURL on cleanup
+  // Revoke ObjectURLs on cleanup
   useEffect(() => {
     return () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      photoPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [photoPreview]);
+  }, [photoPreviews]);
 
   // Scroll suggestions into view when they appear
   useEffect(() => {
@@ -85,9 +85,9 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
     setTags([]);
     setIcon('');
     setColor('');
-    setPhoto(null);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoPreview(null);
+    photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setPhotos([]);
+    setPhotoPreviews([]);
     setAnalyzing(false);
     setAnalyzeError(null);
     setSuggestions(null);
@@ -95,26 +95,28 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
   }
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setSuggestions(null);
-    setAnalyzeError(null);
-  }
-
-  function handleRemovePhoto() {
-    setPhoto(null);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoPreview(null);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newFiles = Array.from(files).slice(0, MAX_AI_PHOTOS - photos.length);
+    if (newFiles.length === 0) return;
+    const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
+    setPhotos((prev) => [...prev, ...newFiles]);
+    setPhotoPreviews((prev) => [...prev, ...newPreviews]);
     setSuggestions(null);
     setAnalyzeError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
+  function handleRemovePhoto(index: number) {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+    setSuggestions(null);
+    setAnalyzeError(null);
+  }
+
   async function handleAnalyze() {
-    if (!photo) return;
+    if (photos.length === 0) return;
     if (!aiSettings) {
       setAiSetupOpen(true);
       return;
@@ -122,14 +124,18 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
-      const compressed = await compressImage(photo);
-      const file = compressed instanceof File
-        ? compressed
-        : new File([compressed], photo.name, { type: compressed.type || 'image/jpeg' });
-      const result = await analyzeImageFile(file);
+      const compressedFiles = await Promise.all(
+        photos.map(async (p) => {
+          const compressed = await compressImage(p);
+          return compressed instanceof File
+            ? compressed
+            : new File([compressed], p.name, { type: compressed.type || 'image/jpeg' });
+        })
+      );
+      const result = await analyzeImageFiles(compressedFiles);
       setSuggestions(result);
     } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze photo');
+      setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze photos');
     } finally {
       setAnalyzing(false);
     }
@@ -158,13 +164,17 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
         icon,
         color,
       });
-      // Upload photo non-blocking (fire-and-forget)
-      if (photo) {
-        compressImage(photo)
-          .then((compressed) => addPhoto(id, compressed instanceof File
-            ? compressed
-            : new File([compressed], photo.name, { type: compressed.type || 'image/jpeg' })))
-          .catch(() => { /* photo upload is non-blocking */ });
+      // Upload photos non-blocking (fire-and-forget)
+      if (photos.length > 0) {
+        Promise.all(
+          photos.map((p) =>
+            compressImage(p)
+              .then((compressed) => addPhoto(id, compressed instanceof File
+                ? compressed
+                : new File([compressed], p.name, { type: compressed.type || 'image/jpeg' })))
+              .catch(() => { /* photo upload is non-blocking */ })
+          )
+        ).catch(() => { /* ignore */ });
       }
       onOpenChange(false);
       navigate(`/bin/${id}`);
@@ -184,16 +194,17 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Photo upload */}
             <div className="space-y-2">
-              <Label>Photo</Label>
+              <Label>Photos</Label>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
+                multiple
                 className="hidden"
                 onChange={handlePhotoSelect}
               />
-              {!photo ? (
+              {photos.length === 0 ? (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -203,44 +214,48 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
                   Add Photo
                 </button>
               ) : (
-                <div className="flex items-center gap-3">
-                  {photoPreview && (
-                    <img
-                      src={photoPreview}
-                      alt="Preview"
-                      className="h-14 w-14 rounded-[var(--radius-md)] object-cover shrink-0"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] text-[var(--text-secondary)] truncate">{photo.name}</p>
-                    <p className="text-[12px] text-[var(--text-tertiary)]">
-                      {(photo.size / 1024).toFixed(0)} KB
-                    </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 overflow-x-auto">
+                    {photoPreviews.map((preview, i) => (
+                      <div key={i} className="relative shrink-0">
+                        <img
+                          src={preview}
+                          alt={`Preview ${i + 1}`}
+                          className="h-14 w-14 rounded-[var(--radius-md)] object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(i)}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-[var(--bg-elevated)] border border-[var(--border)] flex items-center justify-center shadow-sm hover:bg-[var(--destructive)] hover:text-white transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {photos.length < MAX_AI_PHOTOS && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-14 w-14 shrink-0 flex items-center justify-center rounded-[var(--radius-md)] border-2 border-dashed border-[var(--border)] text-[var(--text-tertiary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={handleAnalyze}
                     disabled={analyzing}
-                    title="Analyze with AI"
-                    className="shrink-0"
+                    className="gap-1.5"
                   >
                     {analyzing ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Sparkles className="h-4 w-4 text-[var(--accent)]" />
                     )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleRemovePhoto}
-                    title="Remove photo"
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
+                    {analyzing ? 'Analyzing...' : `Analyze with AI${photos.length > 1 ? ` (${photos.length})` : ''}`}
                   </Button>
                 </div>
               )}

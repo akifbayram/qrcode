@@ -4,8 +4,8 @@ import path from 'path';
 import multer from 'multer';
 import { query } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
-import { analyzeImage, testConnection, AiAnalysisError } from '../lib/aiProviders.js';
-import type { AiProviderConfig } from '../lib/aiProviders.js';
+import { analyzeImage, analyzeImages, testConnection, AiAnalysisError } from '../lib/aiProviders.js';
+import type { AiProviderConfig, ImageInput } from '../lib/aiProviders.js';
 
 const router = Router();
 const PHOTO_STORAGE_PATH = process.env.PHOTO_STORAGE_PATH || './uploads';
@@ -129,10 +129,19 @@ router.delete('/settings', async (req, res) => {
   }
 });
 
-// POST /api/ai/analyze-image — analyze a raw uploaded image (no stored photo required)
-router.post('/analyze-image', memoryUpload.single('photo'), async (req, res) => {
+// POST /api/ai/analyze-image — analyze raw uploaded image(s) (no stored photo required)
+router.post('/analyze-image', memoryUpload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'photos', maxCount: 5 },
+]), async (req, res) => {
   try {
-    if (!req.file) {
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const allFiles = [
+      ...(files?.photo || []),
+      ...(files?.photos || []),
+    ].slice(0, 5);
+
+    if (allFiles.length === 0) {
       res.status(400).json({ error: 'photo file is required (JPEG, PNG, WebP, or GIF, max 5MB)' });
       return;
     }
@@ -155,8 +164,12 @@ router.post('/analyze-image', memoryUpload.single('photo'), async (req, res) => 
       endpointUrl: settings.endpoint_url,
     };
 
-    const imageBase64 = req.file.buffer.toString('base64');
-    const suggestions = await analyzeImage(config, imageBase64, req.file.mimetype);
+    const images: ImageInput[] = allFiles.map((f) => ({
+      base64: f.buffer.toString('base64'),
+      mimeType: f.mimetype,
+    }));
+
+    const suggestions = await analyzeImages(config, images);
     res.json(suggestions);
   } catch (err) {
     if (err instanceof AiAnalysisError) {
@@ -168,12 +181,20 @@ router.post('/analyze-image', memoryUpload.single('photo'), async (req, res) => 
   }
 });
 
-// POST /api/ai/analyze — analyze a photo
+// POST /api/ai/analyze — analyze stored photo(s)
 router.post('/analyze', async (req, res) => {
   try {
-    const { photoId } = req.body;
-    if (!photoId) {
-      res.status(400).json({ error: 'photoId is required' });
+    const { photoId, photoIds } = req.body;
+    // Accept either a single photoId or an array of photoIds
+    let ids: string[] = [];
+    if (Array.isArray(photoIds) && photoIds.length > 0) {
+      ids = photoIds.slice(0, 5);
+    } else if (photoId) {
+      ids = [photoId];
+    }
+
+    if (ids.length === 0) {
+      res.status(400).json({ error: 'photoId or photoIds is required' });
       return;
     }
 
@@ -195,32 +216,38 @@ router.post('/analyze', async (req, res) => {
       endpointUrl: settings.endpoint_url,
     };
 
-    // Verify photo access: photo -> bin -> location_members
-    const photoResult = await query(
-      `SELECT p.storage_path, p.mime_type FROM photos p
-       JOIN bins b ON b.id = p.bin_id
-       JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
-       WHERE p.id = $1`,
-      [photoId, req.user!.id]
-    );
+    // Load and verify access for each photo
+    const images: ImageInput[] = [];
+    for (const pid of ids) {
+      const photoResult = await query(
+        `SELECT p.storage_path, p.mime_type FROM photos p
+         JOIN bins b ON b.id = p.bin_id
+         JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
+         WHERE p.id = $1`,
+        [pid, req.user!.id]
+      );
 
-    if (photoResult.rows.length === 0) {
-      res.status(404).json({ error: 'Photo not found or access denied' });
-      return;
+      if (photoResult.rows.length === 0) {
+        res.status(404).json({ error: 'Photo not found or access denied' });
+        return;
+      }
+
+      const { storage_path, mime_type } = photoResult.rows[0];
+      const filePath = path.join(PHOTO_STORAGE_PATH, storage_path);
+
+      if (!fs.existsSync(filePath)) {
+        res.status(404).json({ error: 'Photo file not found on disk' });
+        return;
+      }
+
+      const imageBuffer = fs.readFileSync(filePath);
+      images.push({
+        base64: imageBuffer.toString('base64'),
+        mimeType: mime_type,
+      });
     }
 
-    const { storage_path, mime_type } = photoResult.rows[0];
-    const filePath = path.join(PHOTO_STORAGE_PATH, storage_path);
-
-    if (!fs.existsSync(filePath)) {
-      res.status(404).json({ error: 'Photo file not found on disk' });
-      return;
-    }
-
-    const imageBuffer = fs.readFileSync(filePath);
-    const imageBase64 = imageBuffer.toString('base64');
-
-    const suggestions = await analyzeImage(config, imageBase64, mime_type);
+    const suggestions = await analyzeImages(config, images);
     res.json(suggestions);
   } catch (err) {
     if (err instanceof AiAnalysisError) {
