@@ -188,6 +188,19 @@ export async function restoreBin(bin: Bin): Promise<void> {
   notifyBinsChanged();
 }
 
+export function useAllTags(): string[] {
+  const { bins } = useBinList();
+  return useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const bin of bins) {
+      if (Array.isArray(bin.tags)) {
+        for (const tag of bin.tags) tagSet.add(tag);
+      }
+    }
+    return [...tagSet].sort();
+  }, [bins]);
+}
+
 export async function lookupBinByCode(shortCode: string): Promise<Bin> {
   return apiFetch<Bin>(`/api/bins/lookup/${encodeURIComponent(shortCode)}`);
 }

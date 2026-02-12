@@ -39,6 +39,7 @@ src/
     homes/          # HomesPage, HomeSelector, HomeMembersDialog, useHomes
     photos/         # PhotoGallery, PhotoLightbox, usePhotos, compressImage
     profile/        # ProfilePage (avatar, display name, email, password change)
+    tags/           # TagColorsContext, TagColorPicker, TagsPage, useTagColors
     qrcode/         # QRScannerPage, QRCodeDisplay, Html5QrcodePlugin
     print/          # PrintPage, LabelSheet, LabelCell, labelFormats
     settings/       # SettingsPage, exportImport
@@ -82,6 +83,9 @@ nginx.conf          # Reverse proxy config
 - **App settings**: `useAppSettings()` in `lib/appSettings.ts` manages app name/subtitle via `localStorage('qrbin-app-name')`.
 - **User profile fields**: `User` interface includes `email: string | null` and `avatarUrl: string | null`. Avatars stored in `uploads/avatars/` with UUID filenames, served via `GET /api/auth/avatar/:userId`.
 - **`updateUser(user)`** on auth context allows immediate UI updates after profile edits (avatar, display name, email) without re-fetching `/me`.
+- **Tag colors**: `TagColor` type with `{ tag, color, home_id }`. `useTagColorsContext()` from `TagColorsContext` provides a `Map<string, string>` mapping tag names to color preset keys. `setTagColor()` and `removeTagColor()` in `useTagColors.ts` for mutations. Colors use the same `colorPalette.ts` presets as bin colors.
+- **TagInput dropdown**: On focus, shows all available (unselected) suggestions as pill-shaped badges with tag colors. Filters as user types. Dropdown stays open when selecting tags so users can pick multiple. Items render as rounded badges (matching the selected tag appearance) rather than a traditional list dropdown. Input refocuses automatically after tag selection. Selected tags show the remove (X) button to the left of the tag name.
+- **BinCard tags**: Tags row is single-line (`overflow-hidden`, no wrapping) to keep cards compact on the list page.
 
 ## Server API Routes
 
@@ -90,6 +94,7 @@ nginx.conf          # Reverse proxy config
 - **Bins**: `POST /api/bins`, `GET /api/bins`, `GET /api/bins/lookup/:shortCode`, `GET /api/bins/:id`, `PUT /api/bins/:id`, `DELETE /api/bins/:id`, `PUT /api/bins/:id/add-tags`, `POST /api/bins/:id/photos`
 - **Photos**: `GET /api/photos/:id/file`, `DELETE /api/photos/:id`
 - **Shapes** (Electric proxy): `GET /api/shapes/bins?home_id=X`, `GET /api/shapes/photos?home_id=X`, `GET /api/shapes/homes`, `GET /api/shapes/home-members?home_id=X`
+- **Tag Colors**: `GET /api/tag-colors?home_id=X`, `PUT /api/tag-colors`, `DELETE /api/tag-colors/:tag?home_id=X`
 - **Export/Import**: `GET /api/homes/:id/export`, `POST /api/homes/:id/import`, `POST /api/import/legacy`
 
 ## Gotchas

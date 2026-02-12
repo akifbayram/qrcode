@@ -6,6 +6,7 @@ import binsRoutes from './routes/bins.js';
 import photosRoutes from './routes/photos.js';
 import shapesRoutes from './routes/shapes.js';
 import exportRoutes from './routes/export.js';
+import tagColorsRoutes from './routes/tagColors.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '4000', 10);
@@ -19,6 +20,7 @@ app.use('/api/homes', homesRoutes);
 app.use('/api/bins', binsRoutes);
 app.use('/api/photos', photosRoutes);
 app.use('/api/shapes', shapesRoutes);
+app.use('/api/tag-colors', tagColorsRoutes);
 app.use('/api', exportRoutes);
 
 // Error handler

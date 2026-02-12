@@ -15,11 +15,13 @@ import { TagInput } from './TagInput';
 import { ItemsInput } from './ItemsInput';
 import { IconPicker } from './IconPicker';
 import { ColorPicker } from './ColorPicker';
-import { useBin, updateBin, deleteBin, restoreBin } from './useBins';
+import { useBin, updateBin, deleteBin, restoreBin, useAllTags } from './useBins';
 import { resolveIcon } from '@/lib/iconMap';
 import { getColorPreset } from '@/lib/colorPalette';
 import { PhotoGallery } from '@/features/photos/PhotoGallery';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/lib/theme';
+import { useTagColorsContext } from '@/features/tags/TagColorsContext';
 import type { Bin } from '@/types';
 
 function formatDate(iso: string): string {
@@ -30,7 +32,10 @@ export function BinDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { bin, isLoading } = useBin(id);
+  const allTags = useAllTags();
   const { showToast } = useToast();
+  const { theme } = useTheme();
+  const { tagColors } = useTagColorsContext();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
@@ -222,7 +227,7 @@ export function BinDetailPage() {
             </div>
             <div className="space-y-2">
               <Label>Tags</Label>
-              <TagInput tags={editTags} onChange={setEditTags} />
+              <TagInput tags={editTags} onChange={setEditTags} suggestions={allTags} />
             </div>
             <div className="space-y-2">
               <Label>Icon</Label>
@@ -321,9 +326,19 @@ export function BinDetailPage() {
                 <div>
                   <Label>Tags</Label>
                   <div className="flex flex-wrap gap-2 mt-2.5">
-                    {bin.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
-                    ))}
+                    {bin.tags.map((tag) => {
+                      const tagColorKey = tagColors.get(tag);
+                      const tagPreset = tagColorKey ? getColorPreset(tagColorKey) : undefined;
+                      const tagStyle = tagPreset
+                        ? {
+                            backgroundColor: theme === 'dark' ? tagPreset.bgDark : tagPreset.bg,
+                            color: theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)',
+                          }
+                        : undefined;
+                      return (
+                        <Badge key={tag} variant="secondary" style={tagStyle}>{tag}</Badge>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -7,6 +7,8 @@ import { cn, haptic } from '@/lib/utils';
 import { resolveIcon } from '@/lib/iconMap';
 import { getColorPreset } from '@/lib/colorPalette';
 import { useTheme } from '@/lib/theme';
+import { useTagColorsContext } from '@/features/tags/TagColorsContext';
+import { getColorPreset as getTagColorPreset } from '@/lib/colorPalette';
 import type { Bin } from '@/types';
 
 interface BinCardProps {
@@ -21,6 +23,7 @@ interface BinCardProps {
 export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable, selected, onSelect, searchQuery = '' }: BinCardProps) {
   const navigate = useNavigate();
   const { theme } = useTheme();
+  const { tagColors } = useTagColorsContext();
   const BinIcon = resolveIcon(bin.icon);
   const colorPreset = getColorPreset(bin.color);
   const colorBg = colorPreset ? (theme === 'dark' ? colorPreset.bgDark : colorPreset.bg) : undefined;
@@ -100,20 +103,31 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
             </p>
           )}
           {bin.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {bin.tags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="cursor-pointer text-[11px] hover:bg-[var(--bg-active)] transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!selectable) onTagClick?.(tag);
-                  }}
-                >
-                  {tag}
-                </Badge>
-              ))}
+            <div className="flex gap-1.5 mt-2 overflow-hidden">
+              {bin.tags.map((tag) => {
+                const tagColorKey = tagColors.get(tag);
+                const tagPreset = tagColorKey ? getTagColorPreset(tagColorKey) : undefined;
+                const tagStyle = tagPreset
+                  ? {
+                      backgroundColor: theme === 'dark' ? tagPreset.bgDark : tagPreset.bg,
+                      color: theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)',
+                    }
+                  : undefined;
+                return (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="cursor-pointer text-[11px] hover:bg-[var(--bg-active)] transition-colors"
+                    style={tagStyle}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!selectable) onTagClick?.(tag);
+                    }}
+                  >
+                    {tag}
+                  </Badge>
+                );
+              })}
             </div>
           )}
         </div>

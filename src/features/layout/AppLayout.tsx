@@ -9,6 +9,7 @@ import { useOnlineStatus } from '@/lib/useOnlineStatus';
 import { useAppSettings } from '@/lib/appSettings';
 import { useAuth } from '@/lib/auth';
 import { useHomeList } from '@/features/homes/useHomes';
+import { TagColorsProvider } from '@/features/tags/TagColorsContext';
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -51,6 +52,7 @@ export function AppLayout() {
   }
 
   return (
+    <TagColorsProvider>
     <div className="min-h-dvh bg-[var(--bg-base)] text-[var(--text-primary)] transition-colors duration-300">
       <a
         href="#main-content"
@@ -95,5 +97,6 @@ export function AppLayout() {
       </main>
       <BottomNav />
     </div>
+    </TagColorsProvider>
   );
 }

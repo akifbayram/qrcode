@@ -37,6 +37,10 @@ const ProfilePage = React.lazy(() =>
   import('@/features/profile/ProfilePage').then((m) => ({ default: m.ProfilePage }))
 );
 
+const TagsPage = React.lazy(() =>
+  import('@/features/tags/TagsPage').then((m) => ({ default: m.TagsPage }))
+);
+
 function LoadingFallback() {
   return (
     <div className="flex items-center justify-center py-20">
@@ -189,6 +193,14 @@ export default function App() {
                   element={
                     <Suspense fallback={<LoadingFallback />}>
                       <SettingsPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/tags"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <TagsPage />
                     </Suspense>
                   }
                 />

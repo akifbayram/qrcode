@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Home,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +33,22 @@ const sortLabels: Record<SortOption, string> = {
 const sortOrder: SortOption[] = ['updated', 'created', 'name'];
 
 export function BinListPage() {
-  const [search, setSearch] = useState('');
+  const location = useLocation();
+  const [search, setSearch] = useState(() => {
+    const state = location.state as { search?: string } | null;
+    return state?.search || '';
+  });
+
+  // Update search when navigating from Tags page
+  useEffect(() => {
+    const state = location.state as { search?: string } | null;
+    if (state?.search) {
+      setSearch(state.search);
+      // Clear the navigation state so it doesn't persist on refresh
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
+
   const debouncedSearch = useDebounce(search, 250);
   const [sort, setSort] = useState<SortOption>('updated');
   const [createOpen, setCreateOpen] = useState(false);

@@ -13,3 +13,7 @@ export function getPhotosShapeUrl(homeId: string): string {
 export function getHomeMembersShapeUrl(homeId: string): string {
   return `/api/shapes/home-members?home_id=${encodeURIComponent(homeId)}`;
 }
+
+export function getTagColorsShapeUrl(homeId: string): string {
+  return `/api/shapes/tag-colors?home_id=${encodeURIComponent(homeId)}`;
+}

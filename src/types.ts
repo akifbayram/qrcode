@@ -56,6 +56,16 @@ export interface Photo {
   created_at: string;
 }
 
+export interface TagColor {
+  [key: string]: unknown;  // ElectricSQL Row compatibility
+  id: string;
+  home_id: string;
+  tag: string;
+  color: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ExportedPhoto {
   id: string;
   binId: string;

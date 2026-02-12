@@ -16,7 +16,7 @@ import { TagInput } from './TagInput';
 import { ItemsInput } from './ItemsInput';
 import { IconPicker } from './IconPicker';
 import { ColorPicker } from './ColorPicker';
-import { addBin } from './useBins';
+import { addBin, useAllTags } from './useBins';
 import { useAuth } from '@/lib/auth';
 
 interface BinCreateDialogProps {
@@ -28,6 +28,7 @@ interface BinCreateDialogProps {
 export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDialogProps) {
   const navigate = useNavigate();
   const { activeHomeId } = useAuth();
+  const allTags = useAllTags();
   const [name, setName] = useState(prefillName ?? '');
   const [location, setLocation] = useState('');
   const [items, setItems] = useState<string[]>([]);
@@ -110,7 +111,7 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
           </div>
           <div className="space-y-2">
             <Label>Tags</Label>
-            <TagInput tags={tags} onChange={setTags} />
+            <TagInput tags={tags} onChange={setTags} suggestions={allTags} />
           </div>
           <div className="space-y-2">
             <Label>Icon</Label>

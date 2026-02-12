@@ -173,6 +173,30 @@ router.get('/homes', async (req, res) => {
   }
 });
 
+// GET /api/shapes/tag-colors?home_id=X — proxy tag_colors shape for a home
+router.get('/tag-colors', async (req, res) => {
+  try {
+    const homeId = req.query.home_id as string;
+    if (!homeId) {
+      res.status(400).json({ error: 'home_id query parameter is required' });
+      return;
+    }
+
+    if (!await verifyHomeMembership(homeId, req.user!.id)) {
+      res.status(403).json({ error: 'Not a member of this home' });
+      return;
+    }
+
+    const shapePath = `/v1/shape?table=tag_colors&where=home_id='${homeId}'`;
+    await proxyToElectric(shapePath, req, res);
+  } catch (err) {
+    console.error('Shape tag-colors proxy error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to proxy tag-colors shape' });
+    }
+  }
+});
+
 // GET /api/shapes/home-members?home_id=X — proxy home_members shape
 router.get('/home-members', async (req, res) => {
   try {
