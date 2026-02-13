@@ -18,6 +18,7 @@ const mockApiFetch = vi.mocked(apiFetch);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe('addPhoto', () => {
@@ -50,7 +51,15 @@ describe('deletePhoto', () => {
 });
 
 describe('getPhotoUrl', () => {
-  it('returns correct API URL', () => {
+  it('includes token query param when token exists in localStorage', () => {
+    localStorage.setItem('sanduk-token', 'my-jwt-token');
+
+    expect(getPhotoUrl('photo-123')).toBe(
+      `/api/photos/photo-123/file?token=${encodeURIComponent('my-jwt-token')}`,
+    );
+  });
+
+  it('returns URL without query param when no token', () => {
     expect(getPhotoUrl('photo-123')).toBe('/api/photos/photo-123/file');
   });
 });
