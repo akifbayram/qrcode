@@ -89,28 +89,7 @@ export const LABEL_FORMATS: LabelFormat[] = [
 
 export const DEFAULT_LABEL_FORMAT = 'avery-5160';
 
-const PRESETS_STORAGE_KEY = 'sanduk-label-presets';
-
-export function getSavedPresets(): LabelFormat[] {
-  try {
-    const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return [];
-}
-
-export function savePreset(preset: LabelFormat): void {
-  const presets = getSavedPresets();
-  presets.push(preset);
-  localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
-}
-
-export function deletePreset(key: string): void {
-  const presets = getSavedPresets().filter((p) => p.key !== key);
-  localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
-}
-
-export function getLabelFormat(key: string): LabelFormat {
-  const all = [...LABEL_FORMATS, ...getSavedPresets()];
+export function getLabelFormat(key: string, customPresets?: LabelFormat[]): LabelFormat {
+  const all = [...LABEL_FORMATS, ...(customPresets ?? [])];
   return all.find((f) => f.key === key) ?? LABEL_FORMATS[0];
 }

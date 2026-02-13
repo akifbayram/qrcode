@@ -10,6 +10,7 @@ import shapesRoutes from './routes/shapes.js';
 import exportRoutes from './routes/export.js';
 import tagColorsRoutes from './routes/tagColors.js';
 import aiRoutes from './routes/ai.js';
+import printSettingsRoutes from './routes/printSettings.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '4000', 10);
@@ -63,6 +64,7 @@ app.use('/api/bins', binsRoutes);
 app.use('/api/photos', photosRoutes);
 app.use('/api/shapes', shapesRoutes);
 app.use('/api/tag-colors', tagColorsRoutes);
+app.use('/api/print-settings', printSettingsRoutes);
 app.use('/api', exportRoutes);
 app.use('/api/ai', aiLimiter, aiRoutes);
 

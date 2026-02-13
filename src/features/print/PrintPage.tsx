@@ -11,8 +11,10 @@ import { useBinList } from '@/features/bins/useBins';
 import { useAreaList } from '@/features/areas/useAreas';
 import { useAuth } from '@/lib/auth';
 import { LabelSheet } from './LabelSheet';
-import { LABEL_FORMATS, getLabelFormat, DEFAULT_LABEL_FORMAT, getSavedPresets, savePreset, deletePreset, getOrientation } from './labelFormats';
+import { LABEL_FORMATS, getLabelFormat, DEFAULT_LABEL_FORMAT, getOrientation } from './labelFormats';
+import { usePrintSettings } from './usePrintSettings';
 import type { LabelFormat } from './labelFormats';
+import type { LabelOptions, CustomState } from './usePrintSettings';
 import type { Bin } from '@/types';
 
 function computeScaleFactor(base: LabelFormat, custom: LabelFormat): number {
@@ -49,48 +51,12 @@ function applyAutoScale(base: LabelFormat, custom: LabelFormat): LabelFormat {
   };
 }
 
-const FORMAT_STORAGE_KEY = 'sanduk-label-format';
-const CUSTOM_STORAGE_KEY = 'sanduk-label-custom';
-const OPTIONS_STORAGE_KEY = 'sanduk-label-options';
-
-interface LabelOptions {
-  fontScale: number;
-  showQrCode: boolean;
-  showBinName: boolean;
-  showIcon: boolean;
-  showLocation: boolean;
-  showBinCode: boolean;
-  showColorSwatch: boolean;
-}
-
-const DEFAULT_LABEL_OPTIONS: LabelOptions = {
-  fontScale: 1,
-  showQrCode: true,
-  showBinName: true,
-  showIcon: true,
-  showLocation: true,
-  showBinCode: true,
-  showColorSwatch: false,
-};
-
 const FONT_SCALE_PRESETS = [
   { label: 'S', value: 0.75 },
   { label: 'Default', value: 1 },
   { label: 'L', value: 1.25 },
   { label: 'XL', value: 1.5 },
 ];
-
-function loadLabelOptions(): LabelOptions {
-  try {
-    const raw = localStorage.getItem(OPTIONS_STORAGE_KEY);
-    if (raw) return { ...DEFAULT_LABEL_OPTIONS, ...JSON.parse(raw) };
-  } catch { /* ignore */ }
-  return DEFAULT_LABEL_OPTIONS;
-}
-
-function saveLabelOptions(options: LabelOptions) {
-  localStorage.setItem(OPTIONS_STORAGE_KEY, JSON.stringify(options));
-}
 
 function applyFontScale(fmt: LabelFormat, scale: number): LabelFormat {
   if (scale === 1) return fmt;
@@ -100,24 +66,6 @@ function applyFontScale(fmt: LabelFormat, scale: number): LabelFormat {
     contentFontSize: scaleValue(fmt.contentFontSize, scale),
     codeFontSize: scaleValue(fmt.codeFontSize, scale),
   };
-}
-
-interface CustomState {
-  customizing: boolean;
-  overrides: Partial<LabelFormat>;
-  orientation?: 'landscape' | 'portrait';
-}
-
-function loadCustomState(): CustomState {
-  try {
-    const raw = localStorage.getItem(CUSTOM_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return { customizing: false, overrides: {} };
-}
-
-function saveCustomState(state: CustomState) {
-  localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(state));
 }
 
 const CUSTOM_FIELDS: { label: string; key: keyof LabelFormat; min: string; max?: string; step: string; isNumber?: boolean }[] = [
@@ -133,19 +81,18 @@ const CUSTOM_FIELDS: { label: string; key: keyof LabelFormat; min: string; max?:
 
 export function PrintPage() {
   const [searchParams] = useSearchParams();
-  const { bins: allBins, isLoading } = useBinList(undefined, 'name');
+  const { bins: allBins, isLoading: binsLoading } = useBinList(undefined, 'name');
   const { activeLocationId } = useAuth();
   const { areas } = useAreaList(activeLocationId);
+  const { settings, isLoading: settingsLoading, updateFormatKey, updateCustomState, updateLabelOptions, addPreset, removePreset } = usePrintSettings();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [formatKey, setFormatKey] = useState(() => localStorage.getItem(FORMAT_STORAGE_KEY) || DEFAULT_LABEL_FORMAT);
-  const [labelOptions, setLabelOptions] = useState<LabelOptions>(loadLabelOptions);
   const [binsExpanded, setBinsExpanded] = useState(false);
   const [formatExpanded, setFormatExpanded] = useState(true);
   const [optionsExpanded, setOptionsExpanded] = useState(false);
-  const [customState, setCustomState] = useState<CustomState>(loadCustomState);
-  const [savedPresets, setSavedPresets] = useState<LabelFormat[]>(getSavedPresets);
   const [presetName, setPresetName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+
+  const { formatKey, customState, labelOptions, presets: savedPresets } = settings;
 
   useEffect(() => {
     const idsParam = searchParams.get('ids');
@@ -155,13 +102,11 @@ export function PrintPage() {
   }, [searchParams]);
 
   function handleFormatChange(key: string) {
-    setFormatKey(key);
-    localStorage.setItem(FORMAT_STORAGE_KEY, key);
+    updateFormatKey(key);
     if (customState.customizing) {
-      const newPreset = getLabelFormat(key);
+      const newPreset = getLabelFormat(key, savedPresets);
       const newState: CustomState = { customizing: true, overrides: seedOverrides(newPreset) };
-      setCustomState(newState);
-      saveCustomState(newState);
+      updateCustomState(newState);
     }
   }
 
@@ -183,12 +128,11 @@ export function PrintPage() {
     const next = !customState.customizing;
     let newState: CustomState;
     if (next) {
-      newState = { customizing: true, overrides: seedOverrides(getLabelFormat(formatKey)) };
+      newState = { customizing: true, overrides: seedOverrides(getLabelFormat(formatKey, savedPresets)) };
     } else {
       newState = { customizing: false, overrides: {} };
     }
-    setCustomState(newState);
-    saveCustomState(newState);
+    updateCustomState(newState);
   }
 
   function updateOverride(key: keyof LabelFormat, raw: string) {
@@ -198,8 +142,7 @@ export function PrintPage() {
       ...customState,
       overrides: { ...customState.overrides, [key]: value },
     };
-    setCustomState(newState);
-    saveCustomState(newState);
+    updateCustomState(newState);
   }
 
   function getOverrideValue(key: keyof LabelFormat): string {
@@ -214,24 +157,21 @@ export function PrintPage() {
     if (!name) return;
     const key = `custom-${Date.now()}`;
     const preset: LabelFormat = { ...labelFormat, key, name };
-    savePreset(preset);
-    setSavedPresets(getSavedPresets());
-    setFormatKey(key);
-    localStorage.setItem(FORMAT_STORAGE_KEY, key);
-    setCustomState({ customizing: false, overrides: {} });
-    saveCustomState({ customizing: false, overrides: {} });
+    addPreset(preset);
+    updateFormatKey(key);
+    updateCustomState({ customizing: false, overrides: {} });
     setPresetName('');
     setShowSaveInput(false);
   }
 
   function handleDeletePreset(key: string) {
-    deletePreset(key);
-    setSavedPresets(getSavedPresets());
+    removePreset(key);
     if (formatKey === key) {
-      setFormatKey(DEFAULT_LABEL_FORMAT);
-      localStorage.setItem(FORMAT_STORAGE_KEY, DEFAULT_LABEL_FORMAT);
+      updateFormatKey(DEFAULT_LABEL_FORMAT);
     }
   }
+
+  const isLoading = binsLoading || settingsLoading;
 
   if (isLoading) {
     return (
@@ -249,7 +189,7 @@ export function PrintPage() {
     );
   }
 
-  const baseFormat = getLabelFormat(formatKey);
+  const baseFormat = getLabelFormat(formatKey, savedPresets);
   const mergedFormat = customState.customizing ? { ...baseFormat, ...customState.overrides } : baseFormat;
   const scaledFormat = customState.customizing ? applyAutoScale(baseFormat, mergedFormat) : mergedFormat;
   const labelFormat = applyFontScale(scaledFormat, labelOptions.fontScale);
@@ -273,8 +213,7 @@ export function PrintPage() {
         orientation: newOrientation,
       },
     };
-    setCustomState(newState);
-    saveCustomState(newState);
+    updateCustomState(newState);
   }
 
   function toggleBin(id: string) {
@@ -299,10 +238,9 @@ export function PrintPage() {
     setSelectedIds(new Set(ids));
   }
 
-  function updateLabelOption<K extends keyof LabelOptions>(key: K, value: LabelOptions[K]) {
+  function handleUpdateLabelOption<K extends keyof LabelOptions>(key: K, value: LabelOptions[K]) {
     const next = { ...labelOptions, [key]: value };
-    setLabelOptions(next);
-    saveLabelOptions(next);
+    updateLabelOptions(next);
   }
 
   return (
@@ -616,7 +554,7 @@ export function PrintPage() {
                             ? 'bg-[var(--accent)] text-white'
                             : 'bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                         )}
-                        onClick={() => updateLabelOption('fontScale', preset.value)}
+                        onClick={() => handleUpdateLabelOption('fontScale', preset.value)}
                       >
                         {preset.label}
                       </button>
@@ -637,7 +575,7 @@ export function PrintPage() {
                     <label key={key} className="flex items-center gap-3 px-2 py-1.5 cursor-pointer rounded-[var(--radius-sm)] hover:bg-[var(--bg-hover)] transition-colors">
                       <Checkbox
                         checked={labelOptions[key]}
-                        onCheckedChange={(checked) => updateLabelOption(key, !!checked)}
+                        onCheckedChange={(checked) => handleUpdateLabelOption(key, !!checked)}
                       />
                       <span className="text-[15px] text-[var(--text-primary)]">{label}</span>
                     </label>
