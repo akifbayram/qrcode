@@ -84,7 +84,7 @@ router.get('/settings', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'No AI settings configured' });
+      res.json(null);
       return;
     }
 

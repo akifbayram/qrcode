@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'No print settings found' });
+      res.json(null);
       return;
     }
 

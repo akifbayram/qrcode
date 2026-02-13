@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { AiSettings, AiProvider } from '@/types';
 
@@ -27,17 +27,12 @@ export function useAiSettings() {
     let cancelled = false;
     setIsLoading(true);
 
-    apiFetch<AiSettings>('/api/ai/settings')
+    apiFetch<AiSettings | null>('/api/ai/settings')
       .then((data) => {
         if (!cancelled) setSettings(data);
       })
-      .catch((err) => {
-        if (!cancelled) {
-          // 404 means not configured — that's fine
-          if (err instanceof ApiError && err.status === 404) {
-            setSettings(null);
-          }
-        }
+      .catch(() => {
+        if (!cancelled) setSettings(null);
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);

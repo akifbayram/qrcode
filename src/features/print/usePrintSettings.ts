@@ -107,17 +107,13 @@ export function usePrintSettings() {
 
     async function load() {
       try {
-        const data = await apiFetch<PrintSettings>('/api/print-settings');
-        if (!cancelled) {
-          const merged = { ...DEFAULT_PRINT_SETTINGS, ...data };
-          setSettings(merged);
+        const data = await apiFetch<PrintSettings | null>('/api/print-settings');
+        if (cancelled) return;
+        if (data) {
+          setSettings({ ...DEFAULT_PRINT_SETTINGS, ...data });
           // If we got DB data, clear any leftover localStorage
           clearLocalStorage();
-        }
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const status = (err as { status?: number }).status;
-        if (status === 404) {
+        } else {
           // No DB settings — try migrating from localStorage
           const migrated = migrateFromLocalStorage();
           if (migrated) {
@@ -128,6 +124,8 @@ export function usePrintSettings() {
               .catch((e) => console.error('Failed to migrate print settings:', e));
           }
         }
+      } catch {
+        // Network or server error — keep defaults
       } finally {
         if (!cancelled) setIsLoading(false);
       }

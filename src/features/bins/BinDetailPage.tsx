@@ -55,6 +55,7 @@ export function BinDetailPage() {
   const [quickAddValue, setQuickAddValue] = useState('');
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [qrExpanded, setQrExpanded] = useState(false);
+  const [photosExpanded, setPhotosExpanded] = useState(false);
   const [aiSetupOpen, setAiSetupOpen] = useState(false);
 
   // AI analysis
@@ -71,6 +72,10 @@ export function BinDetailPage() {
           <Skeleton className="h-8 w-3/4" />
           <Skeleton className="h-4 w-1/3" />
         </div>
+        {/* Photos card skeleton (collapsed) */}
+        <div className="glass-card rounded-[var(--radius-lg)] px-4 py-4">
+          <Skeleton className="h-4 w-20" />
+        </div>
         {/* Items card skeleton */}
         <div className="glass-card rounded-[var(--radius-lg)] p-4 space-y-3">
           <Skeleton className="h-4 w-16" />
@@ -78,9 +83,9 @@ export function BinDetailPage() {
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-10 w-full rounded-[var(--radius-md)]" />
         </div>
-        {/* Details card skeleton */}
+        {/* Notes card skeleton */}
         <div className="glass-card rounded-[var(--radius-lg)] p-4 space-y-3">
-          <Skeleton className="h-4 w-1/4" />
+          <Skeleton className="h-4 w-16" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-2/3" />
         </div>
@@ -130,7 +135,7 @@ export function BinDetailPage() {
     if (!id || !bin) return;
     const snapshot: Bin = { ...bin };
     await deleteBin(id);
-    navigate('/');
+    navigate('/bins');
     showToast({
       message: `Deleted "${snapshot.name}"`,
       action: {
@@ -244,26 +249,72 @@ export function BinDetailPage() {
       </div>
 
       {editing ? (
-        <Card>
-          <CardContent className="space-y-5 py-5">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Name</Label>
-              <Input
-                id="edit-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Area</Label>
-              <AreaPicker locationId={activeLocationId ?? undefined} value={editAreaId} onChange={setEditAreaId} />
-            </div>
-            <div className="space-y-2">
+        <>
+          {/* Photos — collapsible, interactive add/delete works in both modes */}
+          <Card>
+            <CardContent className="!py-0">
+              <button
+                type="button"
+                onClick={() => setPhotosExpanded(!photosExpanded)}
+                aria-expanded={photosExpanded}
+                className="flex items-center justify-between w-full py-4 text-left"
+              >
+                <span className="text-[13px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider">
+                  Photos{photos.length > 0 ? ` (${photos.length})` : ''}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 text-[var(--text-tertiary)] transition-transform duration-200',
+                    photosExpanded && 'rotate-180'
+                  )}
+                />
+              </button>
+              {photosExpanded && (
+                <div className="pb-4">
+                  <PhotoGallery binId={bin.id} variant="inline" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Identity — name, area, icon, color */}
+          <Card>
+            <CardContent className="space-y-5 py-5">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Area</Label>
+                <AreaPicker locationId={activeLocationId ?? undefined} value={editAreaId} onChange={setEditAreaId} />
+              </div>
+              <div className="space-y-2">
+                <Label>Icon</Label>
+                <IconPicker value={editIcon} onChange={setEditIcon} />
+              </div>
+              <div className="space-y-2">
+                <Label>Color</Label>
+                <ColorPicker value={editColor} onChange={setEditColor} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Items */}
+          <Card>
+            <CardContent className="space-y-2 py-5">
               <Label>Items</Label>
               <ItemsInput items={editItems} onChange={setEditItems} />
-            </div>
-            <div className="space-y-2">
+            </CardContent>
+          </Card>
+
+          {/* Notes */}
+          <Card>
+            <CardContent className="space-y-2 py-5">
               <Label htmlFor="edit-notes">Notes</Label>
               <Textarea
                 id="edit-notes"
@@ -271,30 +322,28 @@ export function BinDetailPage() {
                 onChange={(e) => setEditNotes(e.target.value)}
                 rows={3}
               />
-            </div>
-            <div className="space-y-2">
+            </CardContent>
+          </Card>
+
+          {/* Tags */}
+          <Card>
+            <CardContent className="space-y-2 py-5">
               <Label>Tags</Label>
               <TagInput tags={editTags} onChange={setEditTags} suggestions={allTags} />
-            </div>
-            <div className="space-y-2">
-              <Label>Icon</Label>
-              <IconPicker value={editIcon} onChange={setEditIcon} />
-            </div>
-            <div className="space-y-2">
-              <Label>Color</Label>
-              <ColorPicker value={editColor} onChange={setEditColor} />
-            </div>
-            <div className="flex gap-2.5 justify-end pt-1">
-              <Button variant="ghost" onClick={() => setEditing(false)} className="rounded-[var(--radius-full)]">
-                Cancel
-              </Button>
-              <Button onClick={saveEdit} disabled={!editName.trim()} className="rounded-[var(--radius-full)]">
-                <Save className="h-4 w-4 mr-1.5" />
-                Save
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Save / Cancel */}
+          <div className="flex gap-2.5 justify-end pt-1">
+            <Button variant="ghost" onClick={() => setEditing(false)} className="rounded-[var(--radius-full)]">
+              Cancel
+            </Button>
+            <Button onClick={saveEdit} disabled={!editName.trim()} className="rounded-[var(--radius-full)]">
+              <Save className="h-4 w-4 mr-1.5" />
+              Save
+            </Button>
+          </div>
+        </>
       ) : (
         <>
           {/* Title with location subtitle */}
@@ -337,6 +386,33 @@ export function BinDetailPage() {
               onDismiss={clearSuggestions}
             />
           )}
+
+          {/* Photos card — collapsible */}
+          <Card>
+            <CardContent className="!py-0">
+              <button
+                type="button"
+                onClick={() => setPhotosExpanded(!photosExpanded)}
+                aria-expanded={photosExpanded}
+                className="flex items-center justify-between w-full py-4 text-left"
+              >
+                <span className="text-[13px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider">
+                  Photos{photos.length > 0 ? ` (${photos.length})` : ''}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 text-[var(--text-tertiary)] transition-transform duration-200',
+                    photosExpanded && 'rotate-180'
+                  )}
+                />
+              </button>
+              {photosExpanded && (
+                <div className="pb-4">
+                  <PhotoGallery binId={bin.id} variant="inline" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Items card — always visible */}
           <Card>
@@ -383,40 +459,41 @@ export function BinDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Details card — Notes, Tags, Photos consolidated */}
-          <Card>
-            <CardContent className="space-y-5">
-              {hasNotes && (
-                <div>
-                  <Label>Notes</Label>
-                  <p className="mt-2 text-[15px] text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
-                    {bin.notes}
-                  </p>
+          {/* Notes card — only when notes exist */}
+          {hasNotes && (
+            <Card>
+              <CardContent>
+                <Label>Notes</Label>
+                <p className="mt-2 text-[15px] text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                  {bin.notes}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tags card — only when tags exist */}
+          {hasTags && (
+            <Card>
+              <CardContent>
+                <Label>Tags</Label>
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  {bin.tags.map((tag) => {
+                    const tagColorKey = tagColors.get(tag);
+                    const tagPreset = tagColorKey ? getColorPreset(tagColorKey) : undefined;
+                    const tagStyle = tagPreset
+                      ? {
+                          backgroundColor: theme === 'dark' ? tagPreset.bgDark : tagPreset.bg,
+                          color: theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)',
+                        }
+                      : undefined;
+                    return (
+                      <Badge key={tag} variant="secondary" style={tagStyle}>{tag}</Badge>
+                    );
+                  })}
                 </div>
-              )}
-              {hasTags && (
-                <div>
-                  <Label>Tags</Label>
-                  <div className="flex flex-wrap gap-2 mt-2.5">
-                    {bin.tags.map((tag) => {
-                      const tagColorKey = tagColors.get(tag);
-                      const tagPreset = tagColorKey ? getColorPreset(tagColorKey) : undefined;
-                      const tagStyle = tagPreset
-                        ? {
-                            backgroundColor: theme === 'dark' ? tagPreset.bgDark : tagPreset.bg,
-                            color: theme === 'dark' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)',
-                          }
-                        : undefined;
-                      return (
-                        <Badge key={tag} variant="secondary" style={tagStyle}>{tag}</Badge>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <PhotoGallery binId={bin.id} variant="inline" />
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* QR Code & Info — collapsible, collapsed by default */}
           <Card>
