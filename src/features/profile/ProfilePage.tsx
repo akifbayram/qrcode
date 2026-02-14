@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getAvatarUrl } from '@/lib/api';
 import { useLocationList } from '@/features/locations/useLocations';
 import { compressImage } from '@/features/photos/compressImage';
 import type { User } from '@/types';
@@ -35,7 +35,7 @@ export function ProfilePage() {
 
   if (!user) return null;
 
-  const avatarSrc = user.avatarUrl ? `${user.avatarUrl}?t=${Date.now()}` : null;
+  const avatarSrc = user.avatarUrl ? `${getAvatarUrl(user.avatarUrl)}&t=${Date.now()}` : null;
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sun, Moon, Monitor, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2, Pencil, Clock, FileArchive, FileSpreadsheet } from 'lucide-react';
+import { getAvatarUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -278,7 +279,7 @@ export function SettingsPage() {
                 className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] transition-colors w-full text-left"
               >
                 {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" />
+                  <img src={getAvatarUrl(user.avatarUrl)} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" />
                 ) : (
                   <div className="h-9 w-9 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[14px] font-semibold text-[var(--text-secondary)] shrink-0">
                     {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
@@ -453,15 +454,6 @@ export function SettingsPage() {
                 placeholder="Sanduk"
               />
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="app-subtitle" className="text-[13px] text-[var(--text-secondary)]">Subtitle</label>
-              <Input
-                id="app-subtitle"
-                value={settings.appSubtitle}
-                onChange={(e) => updateSettings({ appSubtitle: e.target.value })}
-                placeholder="Inventory"
-              />
-            </div>
             <Button
               variant="outline"
               onClick={resetSettings}
@@ -566,7 +558,7 @@ export function SettingsPage() {
         <CardContent>
           <Label>About</Label>
           <div className="mt-3 space-y-2 text-[15px] text-[var(--text-secondary)]">
-            <p className="font-semibold text-[var(--text-primary)]">{settings.appName} {settings.appSubtitle}</p>
+            <p className="font-semibold text-[var(--text-primary)]">{settings.appName}</p>
             <p>{binCount} bin{binCount !== 1 ? 's' : ''}</p>
           </div>
         </CardContent>

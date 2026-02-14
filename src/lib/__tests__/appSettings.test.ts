@@ -11,19 +11,17 @@ describe('useAppSettings', () => {
     const { result } = renderHook(() => useAppSettings());
     expect(result.current.settings).toEqual({
       appName: 'Sanduk',
-      appSubtitle: 'Inventory',
     });
   });
 
   it('reads stored settings from localStorage', () => {
     localStorage.setItem(
       'sanduk-app-name',
-      JSON.stringify({ appName: 'Custom', appSubtitle: 'Store' })
+      JSON.stringify({ appName: 'Custom' })
     );
 
     const { result } = renderHook(() => useAppSettings());
     expect(result.current.settings.appName).toBe('Custom');
-    expect(result.current.settings.appSubtitle).toBe('Store');
   });
 
   it('handles corrupt JSON gracefully and returns defaults', () => {
@@ -32,19 +30,17 @@ describe('useAppSettings', () => {
     const { result } = renderHook(() => useAppSettings());
     expect(result.current.settings).toEqual({
       appName: 'Sanduk',
-      appSubtitle: 'Inventory',
     });
   });
 
   it('falls back to default appName when stored appName is empty', () => {
     localStorage.setItem(
       'sanduk-app-name',
-      JSON.stringify({ appName: '', appSubtitle: 'Test' })
+      JSON.stringify({ appName: '' })
     );
 
     const { result } = renderHook(() => useAppSettings());
     expect(result.current.settings.appName).toBe('Sanduk');
-    expect(result.current.settings.appSubtitle).toBe('Test');
   });
 
   it('updateSettings persists to localStorage', () => {
@@ -55,7 +51,6 @@ describe('useAppSettings', () => {
     });
 
     expect(result.current.settings.appName).toBe('NewName');
-    expect(result.current.settings.appSubtitle).toBe('Inventory');
 
     const stored = JSON.parse(localStorage.getItem('sanduk-app-name')!);
     expect(stored.appName).toBe('NewName');
@@ -74,7 +69,6 @@ describe('useAppSettings', () => {
     });
     expect(result.current.settings).toEqual({
       appName: 'Sanduk',
-      appSubtitle: 'Inventory',
     });
     expect(localStorage.getItem('sanduk-app-name')).toBeNull();
   });

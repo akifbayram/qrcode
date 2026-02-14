@@ -3,7 +3,7 @@ info:
   title: Sanduk API
   version: 1.0.0
   description: |
-    REST API for Sanduk — a multi-user PWA for organizing physical storage bins with QR codes.
+    REST API for Sanduk — a multi-user web app for organizing physical storage bins with QR codes.
 
     **Authentication**: Most endpoints require a JWT Bearer token obtained via `POST /auth/login`.
     Include it in the `Authorization: Bearer <token>` header.

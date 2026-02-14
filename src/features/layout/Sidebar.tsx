@@ -1,9 +1,51 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Tags, ClipboardList, Clock, Trash2, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, MapPin, ClipboardList, Tags, Printer, ScanLine, Clock, LogOut, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { navItems } from '@/lib/navItems';
 import { useAppSettings } from '@/lib/appSettings';
 import { useAuth } from '@/lib/auth';
+import { getAvatarUrl } from '@/lib/api';
+
+const topItems = [
+  { path: '/', label: 'Home', icon: LayoutDashboard },
+  { path: '/bins', label: 'Bins', icon: Package },
+] as const;
+
+const manageItems = [
+  { path: '/areas', label: 'Areas', icon: MapPin },
+  { path: '/items', label: 'Items', icon: ClipboardList },
+  { path: '/tags', label: 'Tags', icon: Tags },
+  { path: '/print', label: 'Print', icon: Printer },
+  { path: '/scan', label: 'Scan', icon: ScanLine },
+] as const;
+
+function NavButton({ path, label, icon: Icon, currentPath, navigate }: {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  currentPath: string;
+  navigate: (path: string) => void;
+}) {
+  const isActive = path === '/bins'
+    ? currentPath === '/bins' || currentPath.startsWith('/bin/')
+    : currentPath === path;
+
+  return (
+    <button
+      onClick={() => navigate(path)}
+      aria-label={label}
+      aria-current={isActive ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
+        isActive
+          ? 'glass-card text-[var(--text-primary)]'
+          : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
+      )}
+    >
+      <Icon className="h-5 w-5" />
+      {label}
+    </button>
+  );
+}
 
 export function Sidebar() {
   const location = useLocation();
@@ -13,145 +55,75 @@ export function Sidebar() {
 
   return (
     <aside aria-label="Main navigation" className="hidden lg:flex flex-col w-[260px] h-dvh fixed left-0 top-0 print-hide">
-      <div className="flex-1 flex flex-col px-5 pt-6 pb-4 gap-1">
+      <div className="flex-1 flex flex-col px-5 pt-6 pb-4">
         {/* Brand */}
         <div className="px-3 pt-2 pb-4">
           <h1 className="text-[22px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
             {settings.appName}
           </h1>
-          {settings.appSubtitle && (
-            <p className="text-[12px] text-[var(--text-tertiary)] mt-1">{settings.appSubtitle}</p>
-          )}
         </div>
 
-        {/* Nav items */}
-        {navItems.map(({ path, label, icon: Icon }) => {
-          const isActive = path === '/bins'
-            ? location.pathname === '/bins' || location.pathname.startsWith('/bin/')
-            : location.pathname === path;
+        {/* Top: Home, Bins */}
+        <div className="space-y-1">
+          {topItems.map((item) => (
+            <NavButton key={item.path} {...item} currentPath={location.pathname} navigate={navigate} />
+          ))}
+        </div>
 
-          return (
+        {/* Spacer top */}
+        <div className="flex-1" />
+
+        {/* Manage section */}
+        <div className="space-y-1">
+          <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+            Manage
+          </p>
+          {manageItems.map((item) => (
+            <NavButton key={item.path} {...item} currentPath={location.pathname} navigate={navigate} />
+          ))}
+        </div>
+
+        {/* Spacer bottom */}
+        <div className="flex-1" />
+      </div>
+
+      {/* Administration section */}
+      <div className="px-5 py-4 border-t border-[var(--border-subtle)]">
+        <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+          Administration
+        </p>
+        <div className="space-y-1">
+          {user && (
             <button
-              key={path}
-              onClick={() => navigate(path)}
-              aria-label={label}
-              aria-current={isActive ? 'page' : undefined}
+              onClick={() => navigate('/profile')}
+              aria-current={location.pathname === '/profile' ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
-                isActive
+                location.pathname === '/profile'
                   ? 'glass-card text-[var(--text-primary)]'
                   : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
               )}
             >
-              <Icon className="h-5 w-5" />
-              {label}
+              {user.avatarUrl ? (
+                <img src={getAvatarUrl(user.avatarUrl)} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
+              ) : (
+                <div className="h-5 w-5 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[10px] font-semibold shrink-0">
+                  {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
+                </div>
+              )}
+              <span className="flex-1 truncate">{user.displayName || user.username}</span>
             </button>
-          );
-        })}
-
-        {/* Tags — desktop sidebar only */}
-        <button
-          onClick={() => navigate('/tags')}
-          aria-label="Tags"
-          aria-current={location.pathname === '/tags' ? 'page' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
-            location.pathname === '/tags'
-              ? 'glass-card text-[var(--text-primary)]'
-              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
           )}
-        >
-          <Tags className="h-5 w-5" />
-          Tags
-        </button>
-
-        {/* Items — desktop sidebar only */}
-        <button
-          onClick={() => navigate('/items')}
-          aria-label="Items"
-          aria-current={location.pathname === '/items' ? 'page' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
-            location.pathname === '/items'
-              ? 'glass-card text-[var(--text-primary)]'
-              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
-          )}
-        >
-          <ClipboardList className="h-5 w-5" />
-          Items
-        </button>
-
-        {/* Activity — desktop sidebar only */}
-        <button
-          onClick={() => navigate('/activity')}
-          aria-label="Activity"
-          aria-current={location.pathname === '/activity' ? 'page' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
-            location.pathname === '/activity'
-              ? 'glass-card text-[var(--text-primary)]'
-              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
-          )}
-        >
-          <Clock className="h-5 w-5" />
-          Activity
-        </button>
-
-        {/* Trash — desktop sidebar only */}
-        <button
-          onClick={() => navigate('/trash')}
-          aria-label="Trash"
-          aria-current={location.pathname === '/trash' ? 'page' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
-            location.pathname === '/trash'
-              ? 'glass-card text-[var(--text-primary)]'
-              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
-          )}
-        >
-          <Trash2 className="h-5 w-5" />
-          Trash
-        </button>
-      </div>
-
-      {/* Bottom section: user info + settings + sign out */}
-      <div className="px-5 py-4 border-t border-[var(--border-subtle)] space-y-1">
-        {user && (
+          <NavButton path="/activity" label="Activity" icon={Clock} currentPath={location.pathname} navigate={navigate} />
+          <NavButton path="/settings" label="Settings" icon={Settings} currentPath={location.pathname} navigate={navigate} />
           <button
-            onClick={() => navigate('/profile')}
-            className="flex items-center gap-3 px-3 py-2 text-[14px] text-[var(--text-secondary)] rounded-[var(--radius-sm)] hover:bg-[var(--bg-hover)] transition-colors w-full text-left"
+            onClick={logout}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] transition-colors w-full"
           >
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover shrink-0" />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[12px] font-semibold shrink-0">
-                {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
-              </div>
-            )}
-            <span className="flex-1 truncate">{user.displayName || user.username}</span>
+            <LogOut className="h-5 w-5" />
+            Sign Out
           </button>
-        )}
-        <button
-          onClick={() => navigate('/settings')}
-          aria-label="Settings"
-          aria-current={location.pathname === '/settings' ? 'page' : undefined}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] font-medium transition-all duration-200 w-full text-left',
-            location.pathname === '/settings'
-              ? 'glass-card text-[var(--text-primary)]'
-              : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'
-          )}
-        >
-          <Settings className="h-5 w-5" />
-          Settings
-        </button>
-        <button
-          onClick={logout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-[15px] text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] transition-colors w-full"
-        >
-          <LogOut className="h-5 w-5" />
-          Sign Out
-        </button>
+        </div>
       </div>
     </aside>
   );

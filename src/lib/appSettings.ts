@@ -2,14 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 
 export interface AppSettings {
   appName: string;
-  appSubtitle: string;
 }
 
 const STORAGE_KEY = 'sanduk-app-name';
 
 const DEFAULTS: AppSettings = {
   appName: 'Sanduk',
-  appSubtitle: 'Inventory',
 };
 
 function loadSettings(): AppSettings {
@@ -19,7 +17,6 @@ function loadSettings(): AppSettings {
       const parsed = JSON.parse(raw);
       return {
         appName: parsed.appName || DEFAULTS.appName,
-        appSubtitle: parsed.appSubtitle ?? DEFAULTS.appSubtitle,
       };
     }
   } catch { /* ignore */ }
@@ -30,10 +27,8 @@ export function useAppSettings() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
 
   useEffect(() => {
-    document.title = settings.appSubtitle
-      ? `${settings.appName} ${settings.appSubtitle}`
-      : settings.appName;
-  }, [settings.appName, settings.appSubtitle]);
+    document.title = settings.appName;
+  }, [settings.appName]);
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     setSettings((prev) => {

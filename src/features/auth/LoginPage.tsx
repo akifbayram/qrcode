@@ -51,9 +51,6 @@ export function LoginPage() {
           <h1 className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight">
             {settings.appName}
           </h1>
-          {settings.appSubtitle && (
-            <p className="text-[14px] text-[var(--text-tertiary)] mt-1">{settings.appSubtitle}</p>
-          )}
         </div>
 
         <Card>

@@ -61,3 +61,9 @@ export async function apiFetch<T>(
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
 }
+
+/** Build an authenticated avatar URL (appends JWT as query param for <img> tags). */
+export function getAvatarUrl(avatarPath: string): string {
+  const token = localStorage.getItem('sanduk-token');
+  return `${avatarPath}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+}
