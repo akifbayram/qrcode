@@ -3,7 +3,7 @@ interface ScanEntry {
   scannedAt: string;
 }
 
-const MAX_ENTRIES = 20;
+import { getDashboardSettings } from '@/lib/dashboardSettings';
 
 function storageKey(userId: string) {
   return `sanduk-scan-history-${userId}`;
@@ -13,7 +13,8 @@ export function recordScan(userId: string, binId: string) {
   const history = getScanHistory(userId);
   const filtered = history.filter((e) => e.binId !== binId);
   filtered.unshift({ binId, scannedAt: new Date().toISOString() });
-  if (filtered.length > MAX_ENTRIES) filtered.length = MAX_ENTRIES;
+  const maxEntries = getDashboardSettings().scanHistoryMax;
+  if (filtered.length > maxEntries) filtered.length = maxEntries;
   localStorage.setItem(storageKey(userId), JSON.stringify(filtered));
 }
 

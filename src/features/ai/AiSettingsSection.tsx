@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ChevronRight, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 import { useAiSettings, saveAiSettings, deleteAiSettings, testAiConnection } from './useAiSettings';
+import { DEFAULT_AI_PROMPT } from './defaultPrompt';
 import type { AiProvider } from '@/types';
 
 const PROVIDER_OPTIONS: { value: AiProvider; label: string }[] = [
@@ -40,6 +43,8 @@ export function AiSettingsSection() {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [endpointUrl, setEndpointUrl] = useState('');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [promptExpanded, setPromptExpanded] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -53,6 +58,8 @@ export function AiSettingsSection() {
       setApiKey(settings.apiKey);
       setModel(settings.model);
       setEndpointUrl(settings.endpointUrl || '');
+      setCustomPrompt(settings.customPrompt || '');
+      if (settings.customPrompt) setPromptExpanded(true);
     }
   }, [settings]);
 
@@ -94,6 +101,7 @@ export function AiSettingsSection() {
         apiKey,
         model,
         endpointUrl: endpointUrl || undefined,
+        customPrompt: customPrompt.trim() || null,
       });
       setSettings(saved);
       showToast({ message: 'AI settings saved' });
@@ -112,6 +120,8 @@ export function AiSettingsSection() {
       setApiKey('');
       setModel('');
       setEndpointUrl('');
+      setCustomPrompt('');
+      setPromptExpanded(false);
       setTestResult(null);
       showToast({ message: 'AI settings removed' });
     } catch {
@@ -194,6 +204,49 @@ export function AiSettingsSection() {
               />
             </div>
           )}
+
+          {/* Custom Prompt */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setPromptExpanded(!promptExpanded)}
+              className="flex items-center gap-1.5 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', promptExpanded && 'rotate-90')} />
+              Custom Prompt
+              {customPrompt.trim() && (
+                <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-full)] bg-[var(--accent)] text-[var(--text-on-accent)]">
+                  customized
+                </span>
+              )}
+            </button>
+            {promptExpanded && (
+              <div className="mt-2 space-y-2">
+                <Textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder={DEFAULT_AI_PROMPT}
+                  className="font-mono text-[13px] min-h-[200px] resize-y"
+                  maxLength={10000}
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-[12px] text-[var(--text-tertiary)]">
+                    Use <code className="text-[11px] px-1 py-0.5 rounded bg-[var(--bg-input)]">{'{available_tags}'}</code> to inject existing tags at runtime. Leave empty for the default prompt.
+                  </p>
+                  {customPrompt.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomPrompt('')}
+                      className="flex items-center gap-1 text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors shrink-0 ml-2"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Test result */}
           {testResult === 'success' && (

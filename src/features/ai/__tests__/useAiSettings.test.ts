@@ -41,6 +41,7 @@ describe('useAiSettings', () => {
       apiKey: 'sk-test',
       model: 'gpt-4',
       endpointUrl: null,
+      customPrompt: null,
     };
     mockApiFetch.mockResolvedValue(settings);
 

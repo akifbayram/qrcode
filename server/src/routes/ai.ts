@@ -79,7 +79,7 @@ function aiErrorToStatus(code: string): number {
 router.get('/settings', async (req, res) => {
   try {
     const result = await query(
-      'SELECT id, provider, api_key, model, endpoint_url FROM user_ai_settings WHERE user_id = $1',
+      'SELECT id, provider, api_key, model, endpoint_url, custom_prompt FROM user_ai_settings WHERE user_id = $1',
       [req.user!.id]
     );
 
@@ -95,6 +95,7 @@ router.get('/settings', async (req, res) => {
       apiKey: maskApiKey(decryptApiKey(row.api_key)),
       model: row.model,
       endpointUrl: row.endpoint_url,
+      customPrompt: row.custom_prompt || null,
     });
   } catch (err) {
     console.error('Get AI settings error:', err);
@@ -105,7 +106,7 @@ router.get('/settings', async (req, res) => {
 // PUT /api/ai/settings — upsert AI config
 router.put('/settings', async (req, res) => {
   try {
-    const { provider, apiKey, model, endpointUrl } = req.body;
+    const { provider, apiKey, model, endpointUrl, customPrompt } = req.body;
 
     if (!provider || !apiKey || !model) {
       res.status(422).json({ error: 'VALIDATION_ERROR', message: 'provider, apiKey, and model are required' });
@@ -115,6 +116,11 @@ router.put('/settings', async (req, res) => {
     const validProviders = ['openai', 'anthropic', 'openai-compatible'];
     if (!validProviders.includes(provider)) {
       res.status(422).json({ error: 'VALIDATION_ERROR', message: 'Invalid provider' });
+      return;
+    }
+
+    if (customPrompt && typeof customPrompt === 'string' && customPrompt.length > 10000) {
+      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'Custom prompt must be 10000 characters or less' });
       return;
     }
 
@@ -134,14 +140,15 @@ router.put('/settings', async (req, res) => {
     }
 
     const encryptedKey = encryptApiKey(finalApiKey);
+    const finalCustomPrompt = (customPrompt && typeof customPrompt === 'string' && customPrompt.trim()) ? customPrompt.trim() : null;
 
     const result = await query(
-      `INSERT INTO user_ai_settings (user_id, provider, api_key, model, endpoint_url)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO user_ai_settings (user_id, provider, api_key, model, endpoint_url, custom_prompt)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (user_id) DO UPDATE SET
-         provider = $2, api_key = $3, model = $4, endpoint_url = $5, updated_at = now()
-       RETURNING id, provider, api_key, model, endpoint_url`,
-      [req.user!.id, provider, encryptedKey, model, endpointUrl || null]
+         provider = $2, api_key = $3, model = $4, endpoint_url = $5, custom_prompt = $6, updated_at = now()
+       RETURNING id, provider, api_key, model, endpoint_url, custom_prompt`,
+      [req.user!.id, provider, encryptedKey, model, endpointUrl || null, finalCustomPrompt]
     );
 
     const row = result.rows[0];
@@ -151,6 +158,7 @@ router.put('/settings', async (req, res) => {
       apiKey: maskApiKey(decryptApiKey(row.api_key)),
       model: row.model,
       endpointUrl: row.endpoint_url,
+      customPrompt: row.custom_prompt || null,
     });
   } catch (err) {
     console.error('Upsert AI settings error:', err);
@@ -188,7 +196,7 @@ router.post('/analyze-image', memoryUpload.fields([
 
     // Load user's AI settings
     const settingsResult = await query(
-      'SELECT provider, api_key, model, endpoint_url FROM user_ai_settings WHERE user_id = $1',
+      'SELECT provider, api_key, model, endpoint_url, custom_prompt FROM user_ai_settings WHERE user_id = $1',
       [req.user!.id]
     );
     if (settingsResult.rows.length === 0) {
@@ -209,7 +217,18 @@ router.post('/analyze-image', memoryUpload.fields([
       mimeType: f.mimetype,
     }));
 
-    const suggestions = await analyzeImages(config, images);
+    // Fetch existing tags from the location for tag reuse
+    const locationId = req.body?.locationId;
+    let existingTags: string[] | undefined;
+    if (locationId) {
+      const tagsResult = await query(
+        `SELECT DISTINCT unnest(tags) AS tag FROM bins WHERE location_id = $1 AND deleted_at IS NULL`,
+        [locationId]
+      );
+      existingTags = tagsResult.rows.map((r) => r.tag as string).sort();
+    }
+
+    const suggestions = await analyzeImages(config, images, existingTags, settings.custom_prompt);
     res.json(suggestions);
   } catch (err) {
     if (err instanceof AiAnalysisError) {
@@ -240,7 +259,7 @@ router.post('/analyze', async (req, res) => {
 
     // Load user's AI settings
     const settingsResult = await query(
-      'SELECT provider, api_key, model, endpoint_url FROM user_ai_settings WHERE user_id = $1',
+      'SELECT provider, api_key, model, endpoint_url, custom_prompt FROM user_ai_settings WHERE user_id = $1',
       [req.user!.id]
     );
     if (settingsResult.rows.length === 0) {
@@ -258,9 +277,10 @@ router.post('/analyze', async (req, res) => {
 
     // Load and verify access for each photo
     const images: ImageInput[] = [];
+    let locationId: string | null = null;
     for (const pid of ids) {
       const photoResult = await query(
-        `SELECT p.storage_path, p.mime_type FROM photos p
+        `SELECT p.storage_path, p.mime_type, b.location_id FROM photos p
          JOIN bins b ON b.id = p.bin_id
          JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
          WHERE p.id = $1`,
@@ -272,7 +292,8 @@ router.post('/analyze', async (req, res) => {
         return;
       }
 
-      const { storage_path, mime_type } = photoResult.rows[0];
+      const { storage_path, mime_type, location_id } = photoResult.rows[0];
+      if (!locationId) locationId = location_id;
       const filePath = path.join(PHOTO_STORAGE_PATH, storage_path);
 
       if (!fs.existsSync(filePath)) {
@@ -287,7 +308,17 @@ router.post('/analyze', async (req, res) => {
       });
     }
 
-    const suggestions = await analyzeImages(config, images);
+    // Fetch existing tags from the location for tag reuse
+    let existingTags: string[] | undefined;
+    if (locationId) {
+      const tagsResult = await query(
+        `SELECT DISTINCT unnest(tags) AS tag FROM bins WHERE location_id = $1 AND deleted_at IS NULL`,
+        [locationId]
+      );
+      existingTags = tagsResult.rows.map((r) => r.tag as string).sort();
+    }
+
+    const suggestions = await analyzeImages(config, images, existingTags, settings.custom_prompt);
     res.json(suggestions);
   } catch (err) {
     if (err instanceof AiAnalysisError) {

@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { query } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { isLocationOwner } from '../middleware/locationAccess.js';
-import { logActivity } from '../lib/activityLog.js';
+import { logActivity, computeChanges } from '../lib/activityLog.js';
 
 const router = Router();
 
@@ -17,7 +17,7 @@ function generateInviteCode(): string {
 router.get('/', async (req, res) => {
   try {
     const result = await query(
-      `SELECT l.id, l.name, l.created_by, l.invite_code, l.created_at, l.updated_at,
+      `SELECT l.id, l.name, l.created_by, l.invite_code, l.activity_retention_days, l.trash_retention_days, l.created_at, l.updated_at,
               lm.role,
               (SELECT COUNT(*)::int FROM location_members WHERE location_id = l.id) AS member_count
        FROM locations l
@@ -31,6 +31,8 @@ router.get('/', async (req, res) => {
       name: row.name,
       created_by: row.created_by,
       invite_code: row.invite_code,
+      activity_retention_days: row.activity_retention_days,
+      trash_retention_days: row.trash_retention_days,
       role: row.role,
       member_count: row.member_count,
       created_at: row.created_at,
@@ -54,7 +56,7 @@ router.post('/', async (req, res) => {
 
     const inviteCode = generateInviteCode();
     const locationResult = await query(
-      'INSERT INTO locations (name, created_by, invite_code) VALUES ($1, $2, $3) RETURNING id, name, invite_code, created_at, updated_at',
+      'INSERT INTO locations (name, created_by, invite_code) VALUES ($1, $2, $3) RETURNING id, name, invite_code, activity_retention_days, trash_retention_days, created_at, updated_at',
       [name.trim(), req.user!.id, inviteCode]
     );
 
@@ -71,6 +73,8 @@ router.post('/', async (req, res) => {
       name: location.name,
       created_by: req.user!.id,
       invite_code: location.invite_code,
+      activity_retention_days: location.activity_retention_days,
+      trash_retention_days: location.trash_retention_days,
       role: 'owner',
       member_count: 1,
       created_at: location.created_at,
@@ -82,40 +86,86 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/locations/:id — update location name (owner only)
+// PUT /api/locations/:id — update location (owner only)
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, activity_retention_days, trash_retention_days } = req.body;
 
     if (!await isLocationOwner(id, req.user!.id)) {
       res.status(403).json({ error: 'FORBIDDEN', message: 'Only the owner can update this location' });
       return;
     }
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'Location name is required' });
+    // At least one field must be provided
+    if (name === undefined && activity_retention_days === undefined && trash_retention_days === undefined) {
+      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'At least one field must be provided' });
       return;
     }
 
-    // Get old name for activity log
-    const oldResult = await query('SELECT name FROM locations WHERE id = $1', [id]);
-    const oldName = oldResult.rows[0]?.name;
+    if (name !== undefined && (!name || typeof name !== 'string' || name.trim().length === 0)) {
+      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'Location name cannot be empty' });
+      return;
+    }
 
-    const result = await query(
-      `UPDATE locations SET name = $1, updated_at = now() WHERE id = $2
-       RETURNING id, name, created_by, invite_code, created_at, updated_at`,
-      [name.trim(), id]
-    );
+    if (activity_retention_days !== undefined) {
+      const v = Number(activity_retention_days);
+      if (!Number.isInteger(v) || v < 7 || v > 365) {
+        res.status(422).json({ error: 'VALIDATION_ERROR', message: 'Activity retention must be between 7 and 365 days' });
+        return;
+      }
+    }
 
-    if (result.rows.length === 0) {
+    if (trash_retention_days !== undefined) {
+      const v = Number(trash_retention_days);
+      if (!Number.isInteger(v) || v < 7 || v > 365) {
+        res.status(422).json({ error: 'VALIDATION_ERROR', message: 'Trash retention must be between 7 and 365 days' });
+        return;
+      }
+    }
+
+    // Get old state for activity log
+    const oldResult = await query('SELECT name, activity_retention_days, trash_retention_days FROM locations WHERE id = $1', [id]);
+    if (oldResult.rows.length === 0) {
       res.status(404).json({ error: 'NOT_FOUND', message: 'Location not found' });
       return;
     }
+    const oldLoc = oldResult.rows[0];
+
+    const setClauses: string[] = ['updated_at = now()'];
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    if (name !== undefined) {
+      setClauses.push(`name = $${paramIdx++}`);
+      params.push(name.trim());
+    }
+    if (activity_retention_days !== undefined) {
+      setClauses.push(`activity_retention_days = $${paramIdx++}`);
+      params.push(Number(activity_retention_days));
+    }
+    if (trash_retention_days !== undefined) {
+      setClauses.push(`trash_retention_days = $${paramIdx++}`);
+      params.push(Number(trash_retention_days));
+    }
+
+    params.push(id);
+
+    const result = await query(
+      `UPDATE locations SET ${setClauses.join(', ')} WHERE id = $${paramIdx}
+       RETURNING id, name, created_by, invite_code, activity_retention_days, trash_retention_days, created_at, updated_at`,
+      params
+    );
 
     const location = result.rows[0];
 
-    if (oldName && oldName !== name.trim()) {
+    // Log changes
+    const newObj: Record<string, unknown> = {};
+    if (name !== undefined) newObj.name = name.trim();
+    if (activity_retention_days !== undefined) newObj.activity_retention_days = Number(activity_retention_days);
+    if (trash_retention_days !== undefined) newObj.trash_retention_days = Number(trash_retention_days);
+    const changes = computeChanges(oldLoc, newObj, Object.keys(newObj));
+    if (changes) {
       logActivity({
         locationId: id,
         userId: req.user!.id,
@@ -124,7 +174,7 @@ router.put('/:id', async (req, res) => {
         entityType: 'location',
         entityId: id,
         entityName: location.name,
-        changes: { name: { old: oldName, new: name.trim() } },
+        changes,
       });
     }
 
@@ -133,6 +183,8 @@ router.put('/:id', async (req, res) => {
       name: location.name,
       created_by: location.created_by,
       invite_code: location.invite_code,
+      activity_retention_days: location.activity_retention_days,
+      trash_retention_days: location.trash_retention_days,
       created_at: location.created_at,
       updated_at: location.updated_at,
     });
@@ -177,7 +229,7 @@ router.post('/join', async (req, res) => {
     }
 
     const locationResult = await query(
-      'SELECT id, name, created_by, created_at, updated_at FROM locations WHERE invite_code = $1',
+      'SELECT id, name, created_by, activity_retention_days, trash_retention_days, created_at, updated_at FROM locations WHERE invite_code = $1',
       [inviteCode.trim()]
     );
 
@@ -218,6 +270,8 @@ router.post('/join', async (req, res) => {
       name: location.name,
       created_by: location.created_by,
       invite_code: '',
+      activity_retention_days: location.activity_retention_days,
+      trash_retention_days: location.trash_retention_days,
       role: 'member',
       created_at: location.created_at,
       updated_at: location.updated_at,

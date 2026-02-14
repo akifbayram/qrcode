@@ -133,7 +133,7 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
             : new File([compressed], p.name, { type: compressed.type || 'image/jpeg' });
         })
       );
-      const result = await analyzeImageFiles(compressedFiles);
+      const result = await analyzeImageFiles(compressedFiles, activeLocationId || undefined);
       setSuggestions(result);
     } catch (err) {
       setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze photos');

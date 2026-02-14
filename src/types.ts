@@ -14,6 +14,8 @@ export interface Location {
   name: string;
   created_by: string;
   invite_code: string;
+  activity_retention_days: number;
+  trash_retention_days: number;
   created_at: string;
   updated_at: string;
 }
@@ -168,6 +170,7 @@ export interface AiSettings {
   apiKey: string;
   model: string;
   endpointUrl: string | null;
+  customPrompt: string | null;
 }
 
 export interface AiSuggestions {

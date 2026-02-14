@@ -1,0 +1,79 @@
+import { useState, useCallback } from 'react';
+
+export interface DashboardSettings {
+  recentBinsCount: number;
+  scanHistoryMax: number;
+}
+
+export const DASHBOARD_LIMITS = {
+  recentBinsCount: { min: 3, max: 20 },
+  scanHistoryMax: { min: 5, max: 100 },
+} as const;
+
+const STORAGE_KEY = 'sanduk-dashboard-settings';
+
+const DEFAULTS: DashboardSettings = {
+  recentBinsCount: 5,
+  scanHistoryMax: 20,
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function loadSettings(): DashboardSettings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        recentBinsCount: clamp(
+          parsed.recentBinsCount ?? DEFAULTS.recentBinsCount,
+          DASHBOARD_LIMITS.recentBinsCount.min,
+          DASHBOARD_LIMITS.recentBinsCount.max,
+        ),
+        scanHistoryMax: clamp(
+          parsed.scanHistoryMax ?? DEFAULTS.scanHistoryMax,
+          DASHBOARD_LIMITS.scanHistoryMax.min,
+          DASHBOARD_LIMITS.scanHistoryMax.max,
+        ),
+      };
+    }
+  } catch { /* ignore */ }
+  return { ...DEFAULTS };
+}
+
+/** Read dashboard settings synchronously (for non-React contexts) */
+export function getDashboardSettings(): DashboardSettings {
+  return loadSettings();
+}
+
+export function useDashboardSettings() {
+  const [settings, setSettings] = useState<DashboardSettings>(loadSettings);
+
+  const updateSettings = useCallback((patch: Partial<DashboardSettings>) => {
+    setSettings((prev) => {
+      const next: DashboardSettings = {
+        recentBinsCount: clamp(
+          patch.recentBinsCount ?? prev.recentBinsCount,
+          DASHBOARD_LIMITS.recentBinsCount.min,
+          DASHBOARD_LIMITS.recentBinsCount.max,
+        ),
+        scanHistoryMax: clamp(
+          patch.scanHistoryMax ?? prev.scanHistoryMax,
+          DASHBOARD_LIMITS.scanHistoryMax.min,
+          DASHBOARD_LIMITS.scanHistoryMax.max,
+        ),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const resetSettings = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setSettings({ ...DEFAULTS });
+  }, []);
+
+  return { settings, updateSettings, resetSettings };
+}

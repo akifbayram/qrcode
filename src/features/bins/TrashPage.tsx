@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useAuth } from '@/lib/auth';
+import { useLocationList } from '@/features/locations/useLocations';
 import { useTrashBins, restoreBinFromTrash, permanentDeleteBin, notifyBinsChanged } from './useBins';
 import type { Bin } from '@/types';
 
@@ -25,7 +27,11 @@ function formatTimeAgo(dateStr: string): string {
 export function TrashPage() {
   const { bins, isLoading } = useTrashBins();
   const { showToast } = useToast();
+  const { activeLocationId } = useAuth();
+  const { locations } = useLocationList();
   const [confirmDelete, setConfirmDelete] = useState<Bin | null>(null);
+  const activeLoc = locations.find((l) => l.id === activeLocationId);
+  const retentionDays = (activeLoc as { trash_retention_days?: number } | undefined)?.trash_retention_days ?? 30;
 
   async function handleRestore(bin: Bin) {
     try {
@@ -55,7 +61,7 @@ export function TrashPage() {
         Trash
       </h1>
       <p className="text-[13px] text-[var(--text-tertiary)]">
-        Deleted bins are kept for 30 days before being permanently removed.
+        Deleted bins are kept for {retentionDays} day{retentionDays !== 1 ? 's' : ''} before being permanently removed.
       </p>
 
       {isLoading ? (

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, Monitor, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2, Pencil, Clock, FileArchive, FileSpreadsheet } from 'lucide-react';
+import { Sun, Moon, Monitor, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2, Pencil, Clock, FileArchive, FileSpreadsheet, Settings2 } from 'lucide-react';
 import { getAvatarUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +34,7 @@ import {
   ImportError,
 } from './exportImport';
 import { AiSettingsSection } from '@/features/ai/AiSettingsSection';
+import { useDashboardSettings, DASHBOARD_LIMITS } from '@/lib/dashboardSettings';
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -69,6 +70,12 @@ export function SettingsPage() {
   const [deletingLocation, setDeletingLocation] = useState(false);
   const deleteLocationName = locations.find((h) => h.id === deleteLocationId)?.name ?? '';
 
+  // Data retention state
+  const [retentionLocationId, setRetentionLocationId] = useState<string | null>(null);
+  const [activityRetention, setActivityRetention] = useState(90);
+  const [trashRetention, setTrashRetention] = useState(30);
+  const [savingRetention, setSavingRetention] = useState(false);
+
   // Delete account state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -76,6 +83,7 @@ export function SettingsPage() {
 
   const { bins } = useBinList();
   const binCount = bins.length;
+  const { settings: dashSettings, updateSettings: updateDashSettings } = useDashboardSettings();
 
   async function handleCreateLocation(e: React.FormEvent) {
     e.preventDefault();
@@ -116,13 +124,30 @@ export function SettingsPage() {
     if (!renameLocationId || !renameValue.trim()) return;
     setRenaming(true);
     try {
-      await updateLocation(renameLocationId, renameValue.trim());
+      await updateLocation(renameLocationId, { name: renameValue.trim() });
       setRenameLocationId(null);
       showToast({ message: 'Location renamed' });
     } catch (err) {
       showToast({ message: err instanceof Error ? err.message : 'Failed to rename location' });
     } finally {
       setRenaming(false);
+    }
+  }
+
+  async function handleSaveRetention() {
+    if (!retentionLocationId) return;
+    setSavingRetention(true);
+    try {
+      await updateLocation(retentionLocationId, {
+        activity_retention_days: activityRetention,
+        trash_retention_days: trashRetention,
+      });
+      setRetentionLocationId(null);
+      showToast({ message: 'Retention settings saved' });
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Failed to save retention settings' });
+    } finally {
+      setSavingRetention(false);
     }
   }
 
@@ -386,6 +411,19 @@ export function SettingsPage() {
                             size="icon"
                             className="rounded-full h-8 w-8"
                             onClick={() => {
+                              setRetentionLocationId(loc.id);
+                              setActivityRetention((loc as { activity_retention_days?: number }).activity_retention_days ?? 90);
+                              setTrashRetention((loc as { trash_retention_days?: number }).trash_retention_days ?? 30);
+                            }}
+                            aria-label="Data retention settings"
+                          >
+                            <Settings2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full h-8 w-8"
+                            onClick={() => {
                               setRenameLocationId(loc.id);
                               setRenameValue(loc.name);
                             }}
@@ -462,6 +500,43 @@ export function SettingsPage() {
               <RotateCcw className="h-4 w-4 mr-2.5" />
               Reset to Default
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dashboard */}
+      <Card>
+        <CardContent>
+          <Label>Dashboard</Label>
+          <div className="flex flex-col gap-3 mt-3">
+            <div className="space-y-1.5">
+              <label htmlFor="recent-bins" className="text-[13px] text-[var(--text-secondary)]">Recent bins shown</label>
+              <Input
+                id="recent-bins"
+                type="number"
+                min={DASHBOARD_LIMITS.recentBinsCount.min}
+                max={DASHBOARD_LIMITS.recentBinsCount.max}
+                value={dashSettings.recentBinsCount}
+                onChange={(e) => updateDashSettings({ recentBinsCount: Number(e.target.value) })}
+              />
+              <p className="text-[11px] text-[var(--text-tertiary)]">
+                {DASHBOARD_LIMITS.recentBinsCount.min}–{DASHBOARD_LIMITS.recentBinsCount.max}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="scan-history" className="text-[13px] text-[var(--text-secondary)]">Scan history entries</label>
+              <Input
+                id="scan-history"
+                type="number"
+                min={DASHBOARD_LIMITS.scanHistoryMax.min}
+                max={DASHBOARD_LIMITS.scanHistoryMax.max}
+                value={dashSettings.scanHistoryMax}
+                onChange={(e) => updateDashSettings({ scanHistoryMax: Number(e.target.value) })}
+              />
+              <p className="text-[11px] text-[var(--text-tertiary)]">
+                {DASHBOARD_LIMITS.scanHistoryMax.min}–{DASHBOARD_LIMITS.scanHistoryMax.max}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -786,6 +861,56 @@ export function SettingsPage() {
           onOpenChange={(open) => !open && setMembersLocationId(null)}
         />
       )}
+
+      {/* Data Retention Dialog */}
+      <Dialog open={!!retentionLocationId} onOpenChange={(open) => !open && setRetentionLocationId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Data Retention</DialogTitle>
+            <DialogDescription>
+              Configure how long data is kept for this location.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="activity-retention">Activity log retention (days)</Label>
+              <Input
+                id="activity-retention"
+                type="number"
+                min={7}
+                max={365}
+                value={activityRetention}
+                onChange={(e) => setActivityRetention(Number(e.target.value))}
+              />
+              <p className="text-[11px] text-[var(--text-tertiary)]">7–365 days. Entries older than this are automatically pruned.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="trash-retention">Trash retention (days)</Label>
+              <Input
+                id="trash-retention"
+                type="number"
+                min={7}
+                max={365}
+                value={trashRetention}
+                onChange={(e) => setTrashRetention(Number(e.target.value))}
+              />
+              <p className="text-[11px] text-[var(--text-tertiary)]">7–365 days. Deleted bins are permanently purged after this period.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRetentionLocationId(null)} className="rounded-[var(--radius-full)]">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveRetention}
+              disabled={savingRetention || activityRetention < 7 || activityRetention > 365 || trashRetention < 7 || trashRetention > 365}
+              className="rounded-[var(--radius-full)]"
+            >
+              {savingRetention ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useBinList } from '@/features/bins/useBins';
 import { useAreaList } from '@/features/areas/useAreas';
+import { useDashboardSettings } from '@/lib/dashboardSettings';
 import { getScanHistory } from './scanHistory';
 import type { Bin } from '@/types';
 
@@ -15,6 +16,7 @@ export function useDashboard() {
   const { user, activeLocationId } = useAuth();
   const { bins, isLoading } = useBinList();
   const { areas } = useAreaList(activeLocationId);
+  const { settings: dashSettings } = useDashboardSettings();
 
   const totalBins = bins.length;
 
@@ -59,8 +61,8 @@ export function useDashboard() {
     () =>
       [...bins]
         .sort((a, b) => (b.updated_at > a.updated_at ? 1 : -1))
-        .slice(0, 5),
-    [bins]
+        .slice(0, dashSettings.recentBinsCount),
+    [bins, dashSettings.recentBinsCount]
   );
 
   const recentlyScanned = useMemo(() => {
@@ -70,8 +72,8 @@ export function useDashboard() {
     return history
       .map((e) => binMap.get(e.binId))
       .filter((b): b is Bin => b != null)
-      .slice(0, 5);
-  }, [bins, user]);
+      .slice(0, dashSettings.recentBinsCount);
+  }, [bins, user, dashSettings.recentBinsCount]);
 
   return { totalBins, totalItems, totalAreas, needsOrganizing, areaStats, recentlyUpdated, recentlyScanned, isLoading };
 }

@@ -53,6 +53,7 @@ export async function saveAiSettings(opts: {
   apiKey: string;
   model: string;
   endpointUrl?: string;
+  customPrompt?: string | null;
 }): Promise<AiSettings> {
   const result = await apiFetch<AiSettings>('/api/ai/settings', {
     method: 'PUT',

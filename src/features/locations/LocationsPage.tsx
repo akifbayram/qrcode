@@ -86,7 +86,7 @@ export function LocationsPage() {
     if (!renameLocationId || !renameValue.trim()) return;
     setRenaming(true);
     try {
-      await updateLocation(renameLocationId, renameValue.trim());
+      await updateLocation(renameLocationId, { name: renameValue.trim() });
       setRenameLocationId(null);
       showToast({ message: 'Location renamed' });
     } catch (err) {

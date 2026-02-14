@@ -164,10 +164,10 @@ describe('createLocation', () => {
 });
 
 describe('updateLocation', () => {
-  it('PUTs with id and name', async () => {
+  it('PUTs with id and payload', async () => {
     mockApiFetch.mockResolvedValue(undefined);
 
-    await updateLocation('loc-1', 'New Name');
+    await updateLocation('loc-1', { name: 'New Name' });
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/locations/loc-1', {
       method: 'PUT',
@@ -179,7 +179,7 @@ describe('updateLocation', () => {
     mockApiFetch.mockResolvedValue(undefined);
     const spy = vi.spyOn(window, 'dispatchEvent');
 
-    await updateLocation('loc-1', 'New Name');
+    await updateLocation('loc-1', { name: 'New Name' });
 
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ type: 'locations-changed' }));
     spy.mockRestore();

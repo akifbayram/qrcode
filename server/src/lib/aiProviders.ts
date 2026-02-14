@@ -1,4 +1,4 @@
-const SYSTEM_PROMPT = `You are an inventory cataloging assistant. You analyze photos of physical storage bins and containers to create searchable inventory records.
+export const DEFAULT_AI_PROMPT = `You are an inventory cataloging assistant. You analyze photos of physical storage bins and containers to create searchable inventory records.
 
 You may receive 1–5 photos of the same bin from different angles. Cross-reference all images to build one unified inventory entry. Do not duplicate items visible in multiple photos.
 
@@ -14,7 +14,8 @@ Return a JSON object with exactly these four fields:
 - Omit the bin or container itself
 - Order from most prominent to least prominent
 
-"tags" — 2–5 lowercase category labels for filtering. Rules:
+"tags" — 2–5 lowercase single-word category labels for filtering. Rules:
+- Each tag MUST be a single word. Never use multi-word tags. Bad: "office supplies", "hand tools", "craft materials". Good: "office", "tools", "craft"
 - Use plural nouns: "tools", "cables", "batteries"
 - Start broad, then add 1–2 specific subcategories: ["tools", "screwdrivers"] or ["electronics", "cables", "usb"]
 - Prefer standard terms: tools, electronics, hardware, office, kitchen, craft, seasonal, automotive, outdoor, clothing, toys, cleaning, medical, plumbing, electrical, cables, batteries, fasteners, adhesives, paint, garden, sports, storage, lighting, sewing
@@ -22,7 +23,24 @@ Return a JSON object with exactly these four fields:
 "notes" — One sentence on organization or condition. Mention: how contents are arranged (sorted by size, loosely mixed, in original packaging), condition (new, used, worn), or any notable labels/markings. Use empty string "" if nothing notable.
 
 Respond with ONLY valid JSON, no markdown fences, no extra text. Example:
-{"name":"Assorted Screwdrivers","items":["Phillips screwdriver (x3)","flathead screwdriver (x2)","precision screwdriver set in case","magnetic bit holder"],"tags":["tools","screwdrivers","hand tools"],"notes":"Neatly organized with larger screwdrivers on the left and precision set in original case."}`;
+{"name":"Assorted Screwdrivers","items":["Phillips screwdriver (x3)","flathead screwdriver (x2)","precision screwdriver set in case","magnetic bit holder"],"tags":["tools","screwdrivers","hardware"],"notes":"Neatly organized with larger screwdrivers on the left and precision set in original case."}`;
+
+function buildSystemPrompt(existingTags?: string[], customPrompt?: string | null): string {
+  const basePrompt = customPrompt || DEFAULT_AI_PROMPT;
+
+  if (!existingTags || existingTags.length === 0) {
+    return basePrompt.replace(/\{available_tags\}/g, '');
+  }
+
+  const tagBlock = `EXISTING TAGS in this inventory: [${existingTags.join(', ')}]
+When a relevant existing tag fits the bin's contents, reuse it instead of creating a new synonym. Only create new tags when no existing tag is appropriate.`;
+
+  if (basePrompt.includes('{available_tags}')) {
+    return basePrompt.replace(/\{available_tags\}/g, tagBlock);
+  }
+
+  return `${basePrompt}\n\n${tagBlock}`;
+}
 
 export type AiProviderType = 'openai' | 'anthropic' | 'openai-compatible';
 
@@ -103,7 +121,9 @@ function validateSuggestions(raw: unknown): AiSuggestionsResult {
 
 async function callOpenAiCompatible(
   config: AiProviderConfig,
-  images: ImageInput[]
+  images: ImageInput[],
+  existingTags?: string[],
+  customPrompt?: string | null
 ): Promise<AiSuggestionsResult> {
   const baseUrl = config.endpointUrl || 'https://api.openai.com/v1';
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
@@ -130,7 +150,7 @@ async function callOpenAiCompatible(
         max_tokens: images.length > 1 ? 2000 : 1500,
         temperature: 0.3,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: buildSystemPrompt(existingTags, customPrompt) },
           {
             role: 'user',
             content: [
@@ -166,7 +186,9 @@ async function callOpenAiCompatible(
 
 async function callAnthropic(
   config: AiProviderConfig,
-  images: ImageInput[]
+  images: ImageInput[],
+  existingTags?: string[],
+  customPrompt?: string | null
 ): Promise<AiSuggestionsResult> {
   const baseUrl = config.endpointUrl || 'https://api.anthropic.com';
   const url = `${baseUrl.replace(/\/+$/, '')}/v1/messages`;
@@ -197,7 +219,7 @@ async function callAnthropic(
         model: config.model,
         max_tokens: images.length > 1 ? 2000 : 1500,
         temperature: 0.3,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(existingTags, customPrompt),
         messages: [
           {
             role: 'user',
@@ -235,20 +257,24 @@ async function callAnthropic(
 
 export async function analyzeImages(
   config: AiProviderConfig,
-  images: ImageInput[]
+  images: ImageInput[],
+  existingTags?: string[],
+  customPrompt?: string | null
 ): Promise<AiSuggestionsResult> {
   if (config.provider === 'anthropic') {
-    return callAnthropic(config, images);
+    return callAnthropic(config, images, existingTags, customPrompt);
   }
-  return callOpenAiCompatible(config, images);
+  return callOpenAiCompatible(config, images, existingTags, customPrompt);
 }
 
 export async function analyzeImage(
   config: AiProviderConfig,
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  existingTags?: string[],
+  customPrompt?: string | null
 ): Promise<AiSuggestionsResult> {
-  return analyzeImages(config, [{ base64: imageBase64, mimeType }]);
+  return analyzeImages(config, [{ base64: imageBase64, mimeType }], existingTags, customPrompt);
 }
 
 export async function testConnection(config: AiProviderConfig): Promise<void> {

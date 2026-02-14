@@ -32,9 +32,13 @@ export async function logActivity(opts: LogActivityOptions): Promise<void> {
       ]
     );
 
-    // Auto-prune entries older than 90 days (non-blocking, best-effort)
+    // Auto-prune entries past the location's retention setting (non-blocking, best-effort)
     query(
-      `DELETE FROM activity_log WHERE location_id = $1 AND created_at < NOW() - INTERVAL '90 days'`,
+      `DELETE FROM activity_log al
+       USING locations l
+       WHERE al.location_id = l.id
+         AND al.location_id = $1
+         AND al.created_at < NOW() - make_interval(days => l.activity_retention_days)`,
       [opts.locationId]
     ).catch(() => { /* ignore prune errors */ });
   } catch (err) {

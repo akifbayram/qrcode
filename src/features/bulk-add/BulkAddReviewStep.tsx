@@ -56,7 +56,7 @@ export function BulkAddReviewStep({ photos, currentIndex, dispatch }: BulkAddRev
       const file = compressed instanceof File
         ? compressed
         : new File([compressed], target.file.name, { type: compressed.type || 'image/jpeg' });
-      const result = await analyzeImageFile(file);
+      const result = await analyzeImageFile(file, activeLocationId || undefined);
       dispatch({
         type: 'SET_ANALYZE_RESULT',
         id: target.id,

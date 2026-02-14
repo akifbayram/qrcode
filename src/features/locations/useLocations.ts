@@ -100,10 +100,10 @@ export async function createLocation(name: string): Promise<Location> {
   return location;
 }
 
-export async function updateLocation(id: string, name: string): Promise<void> {
+export async function updateLocation(id: string, payload: { name?: string; activity_retention_days?: number; trash_retention_days?: number }): Promise<void> {
   await apiFetch(`/api/locations/${id}`, {
     method: 'PUT',
-    body: { name },
+    body: payload,
   });
   notifyLocationsChanged();
 }

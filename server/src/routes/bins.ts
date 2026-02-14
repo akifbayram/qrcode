@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { query } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { logActivity, computeChanges } from '../lib/activityLog.js';
+import { purgeExpiredTrash } from '../lib/trashPurge.js';
 
 const router = Router();
 const PHOTO_STORAGE_PATH = process.env.PHOTO_STORAGE_PATH || './uploads';
@@ -223,6 +224,9 @@ router.get('/trash', async (req, res) => {
       res.status(403).json({ error: 'FORBIDDEN', message: 'Not a member of this location' });
       return;
     }
+
+    // Fire-and-forget: purge bins past retention period
+    purgeExpiredTrash(locationId).catch(() => {});
 
     const result = await query(
       `SELECT ${BIN_SELECT_COLS}, b.deleted_at

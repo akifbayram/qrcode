@@ -176,6 +176,18 @@ components:
           nullable: true
         invite_code:
           type: string
+        activity_retention_days:
+          type: integer
+          minimum: 7
+          maximum: 365
+          default: 90
+          description: Days to keep activity log entries before auto-pruning
+        trash_retention_days:
+          type: integer
+          minimum: 7
+          maximum: 365
+          default: 30
+          description: Days to keep soft-deleted bins before auto-purging
         created_at:
           type: string
           format: date-time
@@ -197,6 +209,16 @@ components:
           nullable: true
         invite_code:
           type: string
+        activity_retention_days:
+          type: integer
+          minimum: 7
+          maximum: 365
+          default: 90
+        trash_retention_days:
+          type: integer
+          minimum: 7
+          maximum: 365
+          default: 30
         created_at:
           type: string
           format: date-time
@@ -518,6 +540,11 @@ components:
         endpointUrl:
           type: string
           nullable: true
+        customPrompt:
+          type: string
+          nullable: true
+          maxLength: 10000
+          description: "Custom system prompt for AI analysis. Use {available_tags} placeholder to inject existing tags. Null uses the default prompt."
 
     AiSettingsRequest:
       type: object
@@ -533,6 +560,11 @@ components:
         endpointUrl:
           type: string
           description: Required when provider is openai-compatible
+        customPrompt:
+          type: string
+          nullable: true
+          maxLength: 10000
+          description: "Custom system prompt for AI analysis. Use {available_tags} placeholder to inject existing tags. Null uses the default prompt."
 
     AiSuggestions:
       type: object
@@ -1060,8 +1092,8 @@ paths:
   /locations/{id}:
     put:
       tags: [Locations]
-      summary: Rename a location
-      description: Owner only.
+      summary: Update a location
+      description: Owner only. Can update name, activity retention, and trash retention.
       parameters:
         - name: id
           in: path
@@ -1075,14 +1107,23 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name]
               properties:
                 name:
                   type: string
                   maxLength: 255
+                activity_retention_days:
+                  type: integer
+                  minimum: 7
+                  maximum: 365
+                  description: Days to keep activity log entries
+                trash_retention_days:
+                  type: integer
+                  minimum: 7
+                  maximum: 365
+                  description: Days to keep soft-deleted bins
       responses:
         '200':
-          description: Location renamed
+          description: Location updated
           content:
             application/json:
               schema:

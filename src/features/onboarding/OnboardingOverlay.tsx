@@ -138,7 +138,7 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
             : new File([compressed], p.name, { type: compressed.type || 'image/jpeg' });
         })
       );
-      const suggestions = await analyzeImageFiles(compressedFiles);
+      const suggestions = await analyzeImageFiles(compressedFiles, locationId);
       if (suggestions.name) setBinName(suggestions.name);
       if (suggestions.items?.length) setBinItems(suggestions.items);
       if (suggestions.tags?.length) setBinTags(suggestions.tags.map(t => t.toLowerCase()));

@@ -16,20 +16,22 @@ export function mapErrorMessage(err: unknown): string {
   return 'Failed to analyze photo';
 }
 
-export async function analyzeImageFile(file: File): Promise<AiSuggestions> {
+export async function analyzeImageFile(file: File, locationId?: string): Promise<AiSuggestions> {
   const formData = new FormData();
   formData.append('photo', file);
+  if (locationId) formData.append('locationId', locationId);
   return apiFetch<AiSuggestions>('/api/ai/analyze-image', {
     method: 'POST',
     body: formData,
   });
 }
 
-export async function analyzeImageFiles(files: File[]): Promise<AiSuggestions> {
+export async function analyzeImageFiles(files: File[], locationId?: string): Promise<AiSuggestions> {
   const formData = new FormData();
   for (const file of files.slice(0, MAX_AI_PHOTOS)) {
     formData.append('photos', file);
   }
+  if (locationId) formData.append('locationId', locationId);
   return apiFetch<AiSuggestions>('/api/ai/analyze-image', {
     method: 'POST',
     body: formData,
