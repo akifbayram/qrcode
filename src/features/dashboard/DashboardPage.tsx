@@ -66,7 +66,7 @@ function SectionHeader({
 export function DashboardPage() {
   const navigate = useNavigate();
   const { activeLocationId } = useAuth();
-  const { totalBins, totalItems, totalAreas, needsOrganizing, recentlyScanned, recentlyUpdated, isLoading } =
+  const { totalBins, totalItems, totalAreas, needsOrganizing, recentlyScanned, recentlyUpdated, pinnedBins, isLoading } =
     useDashboard();
   const [createOpen, setCreateOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -217,6 +217,18 @@ export function DashboardPage() {
           </div>
           <ChevronRight className="h-4 w-4 text-[var(--text-tertiary)]" />
         </button>
+      )}
+
+      {/* Pinned Bins */}
+      {pinnedBins.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <SectionHeader title="Pinned" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {pinnedBins.map((bin) => (
+              <BinCard key={bin.id} bin={bin} />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Recently Scanned */}

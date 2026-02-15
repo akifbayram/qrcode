@@ -3,6 +3,7 @@ import {
   Search,
   Plus,
   PackageOpen,
+  Pin,
   ArrowUpDown,
   SlidersHorizontal,
   Trash2,
@@ -26,6 +27,7 @@ import { haptic } from '@/lib/utils';
 import { useDebounce } from '@/lib/useDebounce';
 import { useAuth } from '@/lib/auth';
 import { useBinList, useAllTags, deleteBin, restoreBin, countActiveFilters, EMPTY_FILTERS, type SortOption, type BinFilters } from './useBins';
+import { usePinnedBins, pinBin, unpinBin } from '@/features/pins/usePins';
 import { BinCard } from './BinCard';
 import { BinCreateDialog } from './BinCreateDialog';
 import { BinFilterDialog } from './BinFilterDialog';
@@ -85,6 +87,7 @@ export function BinListPage() {
   const [viewName, setViewName] = useState('');
   const { activeLocationId, user } = useAuth();
   const { bins, isLoading } = useBinList(debouncedSearch, sort, filters);
+  const { pinnedBins } = usePinnedBins();
   const allTags = useAllTags();
   const activeCount = countActiveFilters(filters);
   const { tagColors } = useTagColorsContext();
@@ -146,6 +149,11 @@ export function BinListPage() {
 
   const handleTagClick = useCallback((tag: string) => {
     setSearch(tag);
+  }, []);
+
+  const handlePinToggle = useCallback(async (id: string, pinned: boolean) => {
+    if (pinned) await pinBin(id);
+    else await unpinBin(id);
   }, []);
 
   function cycleSort() {
@@ -482,49 +490,78 @@ export function BinListPage() {
             Manage Locations
           </Button>
         </div>
-      ) : /* Bin grid */
-      isLoading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-card rounded-[var(--radius-lg)] p-4 space-y-3">
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-          ))}
-        </div>
-      ) : bins.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-5 py-24 text-[var(--text-tertiary)]">
-          <PackageOpen className="h-16 w-16 opacity-40" />
-          <div className="text-center space-y-1.5">
-            <p className="text-[17px] font-semibold text-[var(--text-secondary)]">
-              {search || activeCount > 0 ? 'No bins match your filters' : 'No bins yet'}
-            </p>
-            {!search && activeCount === 0 && (
-              <p className="text-[13px]">Create your first bin to get started</p>
-            )}
-          </div>
-          {!search && activeCount === 0 && (
-            <Button onClick={() => setCreateOpen(true)} variant="outline" className="rounded-[var(--radius-full)] mt-1">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Bin
-            </Button>
-          )}
-        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {bins.map((bin) => (
-            <BinCard
-              key={bin.id}
-              bin={bin}
-              onTagClick={handleTagClick}
-              selectable={selectable}
-              selected={selectedIds.has(bin.id)}
-              onSelect={toggleSelect}
-              searchQuery={debouncedSearch}
-            />
-          ))}
-        </div>
+        <>
+          {/* Pinned bins row */}
+          {pinnedBins.length > 0 && !selectable && (
+            <div className="flex flex-col gap-2">
+              <h2 className="text-[13px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider">Pinned</h2>
+              <div className="flex gap-2.5 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
+                {pinnedBins.map((pin) => (
+                  <button
+                    key={pin.id}
+                    onClick={() => navigate(`/bin/${pin.id}`)}
+                    className="shrink-0 glass-card rounded-[var(--radius-lg)] px-3.5 py-2.5 flex items-center gap-2.5 max-w-[200px] active:scale-[0.98] transition-all"
+                  >
+                    <Pin className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" fill="currentColor" />
+                    <div className="min-w-0 text-left">
+                      <p className="text-[14px] font-medium text-[var(--text-primary)] truncate">{pin.name}</p>
+                      {pin.items.length > 0 && (
+                        <p className="text-[12px] text-[var(--text-tertiary)]">{pin.items.length} item{pin.items.length !== 1 ? 's' : ''}</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bin grid */}
+          {isLoading ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="glass-card rounded-[var(--radius-lg)] p-4 space-y-3">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : bins.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-5 py-24 text-[var(--text-tertiary)]">
+              <PackageOpen className="h-16 w-16 opacity-40" />
+              <div className="text-center space-y-1.5">
+                <p className="text-[17px] font-semibold text-[var(--text-secondary)]">
+                  {search || activeCount > 0 ? 'No bins match your filters' : 'No bins yet'}
+                </p>
+                {!search && activeCount === 0 && (
+                  <p className="text-[13px]">Create your first bin to get started</p>
+                )}
+              </div>
+              {!search && activeCount === 0 && (
+                <Button onClick={() => setCreateOpen(true)} variant="outline" className="rounded-[var(--radius-full)] mt-1">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Bin
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {bins.map((bin) => (
+                <BinCard
+                  key={bin.id}
+                  bin={bin}
+                  onTagClick={handleTagClick}
+                  selectable={selectable}
+                  selected={selectedIds.has(bin.id)}
+                  onSelect={toggleSelect}
+                  searchQuery={debouncedSearch}
+                  onPinToggle={handlePinToggle}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <BinCreateDialog open={createOpen} onOpenChange={setCreateOpen} />

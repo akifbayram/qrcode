@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronDown, Pencil, Trash2, Printer, Save, Sparkles, Loader2, Check } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Pencil, Trash2, Printer, Save, Sparkles, Loader2, Check, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +25,7 @@ import { useAiSettings } from '@/features/ai/useAiSettings';
 import { useAiAnalysis } from '@/features/ai/useAiAnalysis';
 import { useTextStructuring } from '@/features/ai/useTextStructuring';
 import { AiSuggestionsPanel } from '@/features/ai/AiSuggestionsPanel';
+import { pinBin, unpinBin } from '@/features/pins/usePins';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/lib/auth';
@@ -241,6 +242,23 @@ export function BinDetailPage() {
                 )}
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                if (bin.is_pinned) {
+                  await unpinBin(bin.id);
+                  showToast({ message: 'Unpinned' });
+                } else {
+                  await pinBin(bin.id);
+                  showToast({ message: 'Pinned' });
+                }
+              }}
+              aria-label={bin.is_pinned ? 'Unpin bin' : 'Pin bin'}
+              className="rounded-full h-9 w-9"
+            >
+              <Pin className="h-[18px] w-[18px]" fill={bin.is_pinned ? 'currentColor' : 'none'} />
+            </Button>
             <Button
               variant="ghost"
               size="icon"

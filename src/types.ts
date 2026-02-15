@@ -67,6 +67,7 @@ export interface Bin {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  is_pinned?: boolean;
 }
 
 /** Generic list response envelope from API */

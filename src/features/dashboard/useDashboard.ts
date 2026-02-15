@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useBinList } from '@/features/bins/useBins';
+import { usePinnedBins } from '@/features/pins/usePins';
 import { useAreaList } from '@/features/areas/useAreas';
 import { useDashboardSettings } from '@/lib/dashboardSettings';
 import { getScanHistory } from './scanHistory';
@@ -15,6 +16,7 @@ export interface AreaStat {
 export function useDashboard() {
   const { user, activeLocationId } = useAuth();
   const { bins, isLoading } = useBinList();
+  const { pinnedBins } = usePinnedBins();
   const { areas } = useAreaList(activeLocationId);
   const { settings: dashSettings } = useDashboardSettings();
 
@@ -75,5 +77,5 @@ export function useDashboard() {
       .slice(0, dashSettings.recentBinsCount);
   }, [bins, user, dashSettings.recentBinsCount]);
 
-  return { totalBins, totalItems, totalAreas, needsOrganizing, areaStats, recentlyUpdated, recentlyScanned, isLoading };
+  return { totalBins, totalItems, totalAreas, needsOrganizing, areaStats, recentlyUpdated, recentlyScanned, pinnedBins, isLoading };
 }

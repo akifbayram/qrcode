@@ -3,6 +3,7 @@
 /* ─── iOS 26 Liquid Glass Design Tokens ─── */
 :root {
   --bg-base: #f2f2f7;
+  --bg-sidebar: #e8e8ed;
   --bg-elevated: rgba(255, 255, 255, 0.72);
   --bg-glass: rgba(255, 255, 255, 0.55);
   --bg-glass-heavy: rgba(255, 255, 255, 0.78);
@@ -40,6 +41,7 @@
 
 .dark {
   --bg-base: #000000;
+  --bg-sidebar: #1c1c1e;
   --bg-elevated: rgba(28, 28, 30, 0.72);
   --bg-glass: rgba(44, 44, 46, 0.55);
   --bg-glass-heavy: rgba(44, 44, 46, 0.78);

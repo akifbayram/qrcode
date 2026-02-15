@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { BottomNav } from './BottomNav';
 import { Sidebar } from './Sidebar';
 import { useTheme } from '@/lib/theme';
-import { useOnlineStatus } from '@/lib/useOnlineStatus';
 import { useAppSettings } from '@/lib/appSettings';
 import { useAuth } from '@/lib/auth';
 import { useLocationList } from '@/features/locations/useLocations';
@@ -19,7 +18,6 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function AppLayout() {
   useTheme();
-  const online = useOnlineStatus();
   const { settings } = useAppSettings();
   const { activeLocationId, setActiveLocationId } = useAuth();
   const { locations, isLoading: locationsLoading } = useLocationList();
@@ -103,11 +101,6 @@ export function AppLayout() {
               >
                 <X className="h-4 w-4" />
               </button>
-            </div>
-          )}
-          {!online && (
-            <div className="mx-5 mt-4 rounded-[var(--radius-lg)] bg-[var(--bg-input)] px-4 py-2.5 text-center text-[13px] text-[var(--text-secondary)]">
-              You're offline — changes may not sync
             </div>
           )}
           <Outlet />

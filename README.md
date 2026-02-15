@@ -12,7 +12,7 @@ Self-hosted inventory system for organizing physical storage bins with QR codes.
 - **Bulk operations** — Long-press multi-select for batch tagging, moving, or deleting
 - **Dashboard** — Stats, area breakdown, recently scanned/updated bins, needs-organizing queue
 - **Export/Import** — JSON or ZIP backup with photos, CSV export
-- **PWA** — Installable, offline-capable
+- **PWA** — Installable, add to home screen
 
 ## Tech Stack
 

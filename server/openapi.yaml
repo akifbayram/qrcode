@@ -354,6 +354,9 @@ components:
           type: string
           format: date-time
           nullable: true
+        is_pinned:
+          type: boolean
+          description: Whether the current user has pinned this bin
 
     CreateBinRequest:
       type: object
@@ -1657,6 +1660,70 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /bins/pinned:
+    get:
+      tags: [Bins]
+      summary: List pinned bins for current user
+      parameters:
+        - name: location_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pinned bins ordered by position
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bin'
+                  count:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /bins/pinned/reorder:
+    put:
+      tags: [Bins]
+      summary: Reorder pinned bins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bin_ids]
+              properties:
+                bin_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Pins reordered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
   /bins/{id}:
     get:
       tags: [Bins]
@@ -1740,6 +1807,56 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /bins/{id}/pin:
+    post:
+      tags: [Bins]
+      summary: Pin a bin (idempotent, max 20 per location)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Bin pinned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pinned:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Bins]
+      summary: Unpin a bin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Bin unpinned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pinned:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /bins/{id}/restore:
     post:

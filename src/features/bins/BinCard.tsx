@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Check, Pin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Highlight } from '@/components/ui/highlight';
 import { cn, haptic } from '@/lib/utils';
@@ -18,9 +18,10 @@ interface BinCardProps {
   selected?: boolean;
   onSelect?: (id: string) => void;
   searchQuery?: string;
+  onPinToggle?: (id: string, pinned: boolean) => void;
 }
 
-export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable, selected, onSelect, searchQuery = '' }: BinCardProps) {
+export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable, selected, onSelect, searchQuery = '', onPinToggle }: BinCardProps) {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { tagColors } = useTagColorsContext();
@@ -65,7 +66,7 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
       role="button"
       aria-selected={selectable ? selected : undefined}
       className={cn(
-        'glass-card rounded-[var(--radius-lg)] px-4 py-3.5 cursor-pointer transition-all duration-200 active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+        'group glass-card rounded-[var(--radius-lg)] px-4 py-3.5 cursor-pointer transition-all duration-200 active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
         selected && 'ring-2 ring-[var(--accent)]',
         selectable && !selected && 'active:bg-[var(--bg-active)]'
       )}
@@ -136,6 +137,23 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
             </div>
           )}
         </div>
+        {onPinToggle && !selectable && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPinToggle(bin.id, !bin.is_pinned);
+            }}
+            className={cn(
+              'shrink-0 mt-0.5 p-1 rounded-full transition-all',
+              bin.is_pinned
+                ? 'text-[var(--accent)]'
+                : 'text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100'
+            )}
+            aria-label={bin.is_pinned ? 'Unpin bin' : 'Pin bin'}
+          >
+            <Pin className="h-4 w-4" fill={bin.is_pinned ? 'currentColor' : 'none'} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -150,10 +168,12 @@ export const BinCard = React.memo(function BinCard({ bin, onTagClick, selectable
     prev.bin.icon === next.bin.icon &&
     prev.bin.color === next.bin.color &&
     prev.bin.updated_at === next.bin.updated_at &&
+    prev.bin.is_pinned === next.bin.is_pinned &&
     prev.selectable === next.selectable &&
     prev.selected === next.selected &&
     prev.onTagClick === next.onTagClick &&
     prev.onSelect === next.onSelect &&
+    prev.onPinToggle === next.onPinToggle &&
     prev.searchQuery === next.searchQuery
   );
 });

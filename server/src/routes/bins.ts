@@ -3,7 +3,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { query, generateUuid } from '../db.js';
+import { query, generateUuid, getDb } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { logActivity, computeChanges } from '../lib/activityLog.js';
 import { purgeExpiredTrash } from '../lib/trashPurge.js';
@@ -177,8 +177,8 @@ router.get('/', async (req, res) => {
     const sortDir = req.query.sort_dir as string | undefined;
 
     const whereClauses: string[] = ['b.location_id = $1', 'b.deleted_at IS NULL'];
-    const params: unknown[] = [locationId];
-    let paramIdx = 2;
+    const params: unknown[] = [locationId, req.user!.id];
+    let paramIdx = 3;
 
     if (q && q.trim()) {
       const searchTerm = `%${q.trim()}%`;
@@ -220,8 +220,9 @@ router.get('/', async (req, res) => {
     const orderClause = sort === 'area' ? `${orderBy} ${dir}` : `${orderBy} ${dir}`;
 
     const result = await query(
-      `SELECT ${BIN_SELECT_COLS}
+      `SELECT ${BIN_SELECT_COLS}, CASE WHEN pb.user_id IS NOT NULL THEN 1 ELSE 0 END AS is_pinned
        FROM bins b LEFT JOIN areas a ON a.id = b.area_id
+       LEFT JOIN pinned_bins pb ON pb.bin_id = b.id AND pb.user_id = $2
        WHERE ${whereClauses.join(' AND ')} ORDER BY ${orderClause}`,
       params
     );
@@ -271,9 +272,10 @@ router.get('/lookup/:shortCode', async (req, res) => {
     const code = req.params.shortCode.toUpperCase();
 
     const result = await query(
-      `SELECT ${BIN_SELECT_COLS}
+      `SELECT ${BIN_SELECT_COLS}, CASE WHEN pb.user_id IS NOT NULL THEN 1 ELSE 0 END AS is_pinned
        FROM bins b
        LEFT JOIN areas a ON a.id = b.area_id
+       LEFT JOIN pinned_bins pb ON pb.bin_id = b.id AND pb.user_id = $2
        JOIN location_members lm ON lm.location_id = b.location_id AND lm.user_id = $2
        WHERE UPPER(b.short_code) = $1 AND b.deleted_at IS NULL`,
       [code, req.user!.id]
@@ -291,6 +293,57 @@ router.get('/lookup/:shortCode', async (req, res) => {
   }
 });
 
+// GET /api/bins/pinned — list pinned bins for current user
+router.get('/pinned', async (req, res) => {
+  try {
+    const locationId = req.query.location_id as string | undefined;
+    if (!locationId) {
+      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'location_id query parameter is required' });
+      return;
+    }
+    if (!await verifyLocationMembership(locationId, req.user!.id)) {
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Not a member of this location' });
+      return;
+    }
+    const result = await query(
+      `SELECT ${BIN_SELECT_COLS}, 1 AS is_pinned
+       FROM pinned_bins pb
+       JOIN bins b ON b.id = pb.bin_id
+       LEFT JOIN areas a ON a.id = b.area_id
+       WHERE pb.user_id = $1 AND b.location_id = $2 AND b.deleted_at IS NULL
+       ORDER BY pb.position`,
+      [req.user!.id, locationId]
+    );
+    res.json({ results: result.rows, count: result.rows.length });
+  } catch (err) {
+    console.error('List pinned bins error:', err);
+    res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to list pinned bins' });
+  }
+});
+
+// PUT /api/bins/pinned/reorder — update pin positions
+router.put('/pinned/reorder', async (req, res) => {
+  try {
+    const { bin_ids } = req.body;
+    if (!Array.isArray(bin_ids) || bin_ids.length === 0) {
+      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'bin_ids array is required' });
+      return;
+    }
+    const db = getDb();
+    const stmt = db.prepare('UPDATE pinned_bins SET position = ? WHERE user_id = ? AND bin_id = ?');
+    const updateAll = db.transaction(() => {
+      for (let i = 0; i < bin_ids.length; i++) {
+        stmt.run(i, req.user!.id, bin_ids[i]);
+      }
+    });
+    updateAll();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reorder pins error:', err);
+    res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to reorder pins' });
+  }
+});
+
 // GET /api/bins/:id — get single bin
 router.get('/:id', async (req, res) => {
   try {
@@ -303,10 +356,11 @@ router.get('/:id', async (req, res) => {
     }
 
     const result = await query(
-      `SELECT ${BIN_SELECT_COLS}
+      `SELECT ${BIN_SELECT_COLS}, CASE WHEN pb.user_id IS NOT NULL THEN 1 ELSE 0 END AS is_pinned
        FROM bins b LEFT JOIN areas a ON a.id = b.area_id
+       LEFT JOIN pinned_bins pb ON pb.bin_id = b.id AND pb.user_id = $2
        WHERE b.id = $1 AND b.deleted_at IS NULL`,
-      [id]
+      [id, req.user!.id]
     );
 
     if (result.rows.length === 0) {
@@ -655,6 +709,62 @@ router.post('/:id/photos', upload.single('photo'), async (req, res) => {
   } catch (err) {
     console.error('Upload photo error:', err);
     res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to upload photo' });
+  }
+});
+
+// POST /api/bins/:id/pin — pin a bin
+router.post('/:id/pin', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const access = await verifyBinAccess(id, req.user!.id);
+    if (!access) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Bin not found' });
+      return;
+    }
+
+    // Check pin count limit per location
+    const countResult = await query(
+      `SELECT COUNT(*) as cnt FROM pinned_bins pb
+       JOIN bins b ON b.id = pb.bin_id
+       WHERE pb.user_id = $1 AND b.location_id = $2`,
+      [req.user!.id, access.locationId]
+    );
+    if (countResult.rows[0].cnt >= 20) {
+      res.status(422).json({ error: 'VALIDATION_ERROR', message: 'Maximum 20 pinned bins per location' });
+      return;
+    }
+
+    // Get max position
+    const maxResult = await query(
+      'SELECT COALESCE(MAX(position), -1) as max_pos FROM pinned_bins WHERE user_id = $1',
+      [req.user!.id]
+    );
+    const nextPos = maxResult.rows[0].max_pos + 1;
+
+    await query(
+      'INSERT OR IGNORE INTO pinned_bins (user_id, bin_id, position) VALUES ($1, $2, $3)',
+      [req.user!.id, id, nextPos]
+    );
+
+    res.json({ pinned: true });
+  } catch (err) {
+    console.error('Pin bin error:', err);
+    res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to pin bin' });
+  }
+});
+
+// DELETE /api/bins/:id/pin — unpin a bin
+router.delete('/:id/pin', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query(
+      'DELETE FROM pinned_bins WHERE user_id = $1 AND bin_id = $2',
+      [req.user!.id, id]
+    );
+    res.json({ pinned: false });
+  } catch (err) {
+    console.error('Unpin bin error:', err);
+    res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Failed to unpin bin' });
   }
 });
 
