@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ScanLine, MapPin, ChevronRight, Plus, Inbox, ImagePlus, MessageSquare } from 'lucide-react';
+import { ScanLine, MapPin, ChevronRight, Plus, Inbox, ImagePlus, MessageSquare, Search } from 'lucide-react';
 
 const CommandInput = lazy(() => import('@/features/ai/CommandInput').then((m) => ({ default: m.CommandInput })));
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useDebounce } from '@/lib/useDebounce';
 import { useAuth } from '@/lib/auth';
 import { useDashboard } from './useDashboard';
 import { BinCard } from '@/features/bins/BinCard';
@@ -68,10 +70,18 @@ export function DashboardPage() {
   const { activeLocationId } = useAuth();
   const { totalBins, totalItems, totalAreas, needsOrganizing, recentlyScanned, recentlyUpdated, pinnedBins, isLoading } =
     useDashboard();
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [createOpen, setCreateOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (debouncedSearch.trim()) {
+      navigate('/bins', { state: { search: debouncedSearch.trim() } });
+    }
+  }, [debouncedSearch, navigate]);
 
   // Close add menu on click outside
   useEffect(() => {
@@ -166,6 +176,17 @@ export function DashboardPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search bins..."
+          className="pl-10 rounded-[var(--radius-full)] h-10 text-[15px]"
+        />
       </div>
 
       {/* Stats */}
