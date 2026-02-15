@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sun, Moon, Monitor, Download, Upload, AlertTriangle, RotateCcw, LogOut, MapPin, Plus, LogIn, Users, Crown, ChevronRight, Trash2, Pencil, Clock, FileArchive, FileSpreadsheet, Settings2 } from 'lucide-react';
 import { getAvatarUrl } from '@/lib/api';
@@ -84,6 +84,16 @@ export function SettingsPage() {
   const { bins } = useBinList();
   const binCount = bins.length;
   const { settings: dashSettings, updateSettings: updateDashSettings } = useDashboardSettings();
+
+  // Scroll to AI settings section when navigated with #ai-settings hash
+  useEffect(() => {
+    if (window.location.hash === '#ai-settings') {
+      const el = document.getElementById('ai-settings');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, []);
 
   async function handleCreateLocation(e: React.FormEvent) {
     e.preventDefault();

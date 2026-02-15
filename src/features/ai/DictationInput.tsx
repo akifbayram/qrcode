@@ -81,7 +81,7 @@ export function DictationInput({
       {state === 'preview' && structuredItems ? (
         <>
           <p className="text-[13px] font-medium text-[var(--text-secondary)]">
-            {structuredItems.length} item{structuredItems.length !== 1 ? 's' : ''} found
+            {structuredItems.length} item{structuredItems.length !== 1 ? 's' : ''} extracted
           </p>
           <ul className="space-y-1">
             {structuredItems.map((item, i) => {
@@ -119,7 +119,7 @@ export function DictationInput({
               className="rounded-[var(--radius-full)]"
             >
               <ChevronLeft className="h-4 w-4 mr-0.5" />
-              Back
+              Edit
             </Button>
             <Button
               type="button"
@@ -137,7 +137,7 @@ export function DictationInput({
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Describe the items in this bin..."
+            placeholder="List or describe items, e.g. 'three socks, AA batteries, winter jacket'"
             rows={3}
             className="min-h-[80px] bg-[var(--bg-elevated)]"
             disabled={isStructuring}
@@ -156,7 +156,7 @@ export function DictationInput({
             ) : (
               <Sparkles className="h-4 w-4 mr-1.5" />
             )}
-            {isStructuring ? 'Processing...' : 'Add Items'}
+            {isStructuring ? 'Processing...' : 'Extract Items'}
           </Button>
         </>
       )}

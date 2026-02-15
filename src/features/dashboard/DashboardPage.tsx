@@ -160,7 +160,7 @@ export function DashboardPage() {
                   className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[15px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
                 >
                   <MessageSquare className="h-4 w-4 text-[var(--text-secondary)]" />
-                  AI Command
+                  Ask AI
                 </button>
               </div>
             )}

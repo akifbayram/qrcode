@@ -7,13 +7,13 @@ export const MAX_AI_PHOTOS = 5;
 export function mapErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     switch (err.status) {
-      case 422: return 'Check your API key and model name';
-      case 429: return 'Rate limited — try again in a moment';
-      case 502: return 'AI provider error — check your settings';
+      case 422: return 'Invalid API key or model — check Settings > AI';
+      case 429: return 'AI provider rate limited — wait a moment and try again';
+      case 502: return 'Your AI provider returned an error — verify your settings';
       default: return err.message;
     }
   }
-  return 'Failed to analyze photo';
+  return 'Couldn\'t analyze the photo — try again';
 }
 
 export async function analyzeImageFile(file: File, locationId?: string): Promise<AiSuggestions> {

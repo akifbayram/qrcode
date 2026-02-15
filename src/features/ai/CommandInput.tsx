@@ -1,19 +1,32 @@
 import { useState, useCallback } from 'react';
 import {
-  Sparkles, Loader2, ChevronLeft, Check, Plus, Minus, Package, Trash2,
-  Tag, MapPin, FileText, Palette, Image as ImageIcon,
+  Sparkles, Loader2, ChevronLeft, ChevronRight, Check, Plus, Minus, Package, Trash2,
+  Tag, MapPin, FileText, Palette, Image as ImageIcon, Eye, EyeOff,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
-import { useAiSettings } from './useAiSettings';
+import { cn } from '@/lib/utils';
+import { useAiSettings, saveAiSettings, testAiConnection } from './useAiSettings';
 import { useCommand, type CommandAction } from './useCommand';
 import { addBin, updateBin, deleteBin, restoreBin, notifyBinsChanged } from '@/features/bins/useBins';
 import { useAreaList, createArea } from '@/features/areas/useAreas';
 import { apiFetch } from '@/lib/api';
-import type { Bin } from '@/types';
+import type { Bin, AiProvider } from '@/types';
+
+const AI_PROVIDERS: { key: AiProvider; label: string }[] = [
+  { key: 'openai', label: 'OpenAI' },
+  { key: 'anthropic', label: 'Anthropic' },
+  { key: 'openai-compatible', label: 'Compatible' },
+];
+
+const DEFAULT_MODELS: Record<AiProvider, string> = {
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-sonnet-4-5-20250929',
+  'openai-compatible': '',
+};
 
 interface CommandInputProps {
   open: boolean;
@@ -21,6 +34,10 @@ interface CommandInputProps {
 }
 
 type State = 'idle' | 'parsing' | 'preview' | 'executing';
+
+function isDestructiveAction(action: CommandAction): boolean {
+  return action.type === 'delete_bin' || action.type === 'remove_items' || action.type === 'remove_tags';
+}
 
 function getActionIcon(action: CommandAction) {
   switch (action.type) {
@@ -76,23 +93,35 @@ function describeAction(action: CommandAction): string {
 
 export function CommandInput({ open, onOpenChange }: CommandInputProps) {
   const { activeLocationId } = useAuth();
-  const { settings } = useAiSettings();
+  const { settings, isLoading: aiSettingsLoading } = useAiSettings();
   const { showToast } = useToast();
   const { areas } = useAreaList(activeLocationId);
   const { actions, interpretation, isParsing, error, parse, clearCommand } = useCommand();
   const [text, setText] = useState('');
   const [checkedActions, setCheckedActions] = useState<Map<number, boolean>>(new Map());
   const [isExecuting, setIsExecuting] = useState(false);
-  const [showAiGuide, setShowAiGuide] = useState(false);
+  const [executingProgress, setExecutingProgress] = useState({ current: 0, total: 0 });
+
+  // Inline AI setup state
+  const [aiExpanded, setAiExpanded] = useState(false);
+  const [aiProvider, setAiProvider] = useState<AiProvider>('openai');
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiModel, setAiModel] = useState(DEFAULT_MODELS.openai);
+  const [aiEndpointUrl, setAiEndpointUrl] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<'success' | 'error' | null>(null);
 
   const state: State = isExecuting ? 'executing' : isParsing ? 'parsing' : actions ? 'preview' : 'idle';
 
-  const aiConfigured = settings !== null;
+  const isAiReady = settings !== null || aiConfigured;
 
   async function handleParse() {
     if (!text.trim() || !activeLocationId) return;
-    if (!aiConfigured) {
-      setShowAiGuide(true);
+    if (!isAiReady) {
+      setAiExpanded(true);
       return;
     }
     const result = await parse({ text: text.trim(), locationId: activeLocationId });
@@ -100,6 +129,45 @@ export function CommandInput({ open, onOpenChange }: CommandInputProps) {
       const initial = new Map<number, boolean>();
       result.actions.forEach((_, i) => initial.set(i, true));
       setCheckedActions(initial);
+    }
+  }
+
+  async function handleTestAi() {
+    if (!aiApiKey || !aiModel) return;
+    setAiTesting(true);
+    setAiTestResult(null);
+    try {
+      await testAiConnection({
+        provider: aiProvider,
+        apiKey: aiApiKey,
+        model: aiModel,
+        endpointUrl: aiProvider === 'openai-compatible' ? aiEndpointUrl : undefined,
+      });
+      setAiTestResult('success');
+    } catch {
+      setAiTestResult('error');
+    } finally {
+      setAiTesting(false);
+    }
+  }
+
+  async function handleSaveAi() {
+    if (!aiApiKey || !aiModel) return;
+    setAiSaving(true);
+    try {
+      await saveAiSettings({
+        provider: aiProvider,
+        apiKey: aiApiKey,
+        model: aiModel,
+        endpointUrl: aiProvider === 'openai-compatible' ? aiEndpointUrl : undefined,
+      });
+      setAiConfigured(true);
+      setAiExpanded(false);
+      showToast({ message: 'AI settings saved' });
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Failed to save AI settings' });
+    } finally {
+      setAiSaving(false);
     }
   }
 
@@ -127,9 +195,12 @@ export function CommandInput({ open, onOpenChange }: CommandInputProps) {
     if (selected.length === 0) return;
 
     setIsExecuting(true);
+    setExecutingProgress({ current: 0, total: selected.length });
     let completed = 0;
 
-    for (const action of selected) {
+    for (let idx = 0; idx < selected.length; idx++) {
+      const action = selected[idx];
+      setExecutingProgress({ current: idx + 1, total: selected.length });
       try {
         switch (action.type) {
           case 'add_items': {
@@ -254,6 +325,7 @@ export function CommandInput({ open, onOpenChange }: CommandInputProps) {
     }
 
     setIsExecuting(false);
+    setExecutingProgress({ current: 0, total: 0 });
     notifyBinsChanged();
 
     if (completed === selected.length) {
@@ -278,138 +350,269 @@ export function CommandInput({ open, onOpenChange }: CommandInputProps) {
     onOpenChange(v);
   }
 
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
+  const shortcutHint = isMac ? '\u2318Enter' : 'Ctrl+Enter';
+
   return (
-    <>
-      <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>AI Command</DialogTitle>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ask AI</DialogTitle>
+        </DialogHeader>
 
-          {state === 'preview' && actions ? (
-            <div className="space-y-4">
-              {interpretation && (
-                <p className="text-[13px] text-[var(--text-secondary)] italic">
-                  {interpretation}
-                </p>
-              )}
-
-              {actions.length === 0 ? (
-                <p className="text-[14px] text-[var(--text-tertiary)] py-4 text-center">
-                  No actions could be determined from your command. Try being more specific.
-                </p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {actions.map((action, i) => {
-                    const checked = checkedActions.get(i) !== false;
-                    const Icon = getActionIcon(action);
-                    return (
-                      <li key={i}>
-                        <button
-                          type="button"
-                          onClick={() => toggleAction(i)}
-                          className="flex items-start gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 hover:bg-[var(--bg-active)] transition-colors cursor-pointer w-full text-left"
-                        >
-                          <span
-                            className={`shrink-0 mt-0.5 h-4.5 w-4.5 rounded border flex items-center justify-center transition-colors ${
-                              checked
-                                ? 'bg-[var(--accent)] border-[var(--accent)]'
-                                : 'border-[var(--border-primary)] bg-transparent'
-                            }`}
-                          >
-                            {checked && <Check className="h-3 w-3 text-white" />}
-                          </span>
-                          <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${checked ? 'text-[var(--text-secondary)]' : 'text-[var(--text-tertiary)]'}`} />
-                          <span className={`text-[14px] leading-snug ${checked ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)] line-through'}`}>
-                            {describeAction(action)}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBack}
-                  className="rounded-[var(--radius-full)]"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-0.5" />
-                  Back
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={executeActions}
-                  disabled={selectedCount === 0}
-                  className="flex-1 rounded-[var(--radius-full)]"
-                >
-                  Execute {selectedCount} Action{selectedCount !== 1 ? 's' : ''}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <Textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="What would you like to do?"
-                rows={3}
-                className="min-h-[80px] bg-[var(--bg-elevated)]"
-                disabled={state === 'parsing' || state === 'executing'}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    handleParse();
-                  }
-                }}
-              />
-              <p className="text-[12px] text-[var(--text-tertiary)] leading-relaxed">
-                e.g. "Add screwdriver to the tools bin" or "Move batteries from kitchen to garage"
+        {state === 'preview' && actions ? (
+          <div className="space-y-4">
+            {interpretation && (
+              <p className="text-[13px] text-[var(--text-secondary)] italic">
+                {interpretation}
               </p>
-              {error && (
-                <p className="text-[13px] text-[var(--destructive)]">{error}</p>
-              )}
+            )}
+
+            {actions.length === 0 ? (
+              <p className="text-[14px] text-[var(--text-tertiary)] py-4 text-center">
+                No matching bins found, or the command was ambiguous. Try using exact bin names.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {actions.map((action, i) => {
+                  const checked = checkedActions.get(i) !== false;
+                  const Icon = getActionIcon(action);
+                  const destructive = isDestructiveAction(action);
+                  return (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onClick={() => toggleAction(i)}
+                        className="flex items-start gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 hover:bg-[var(--bg-active)] transition-colors cursor-pointer w-full text-left"
+                      >
+                        <span
+                          className={`shrink-0 mt-0.5 h-4.5 w-4.5 rounded border flex items-center justify-center transition-colors ${
+                            checked
+                              ? destructive
+                                ? 'bg-[var(--destructive)] border-[var(--destructive)]'
+                                : 'bg-[var(--accent)] border-[var(--accent)]'
+                              : 'border-[var(--border-primary)] bg-transparent'
+                          }`}
+                        >
+                          {checked && <Check className="h-3 w-3 text-white" />}
+                        </span>
+                        <Icon className={cn(
+                          'h-4 w-4 shrink-0 mt-0.5',
+                          !checked
+                            ? 'text-[var(--text-tertiary)]'
+                            : destructive
+                              ? 'text-[var(--destructive)]'
+                              : 'text-[var(--text-secondary)]'
+                        )} />
+                        <span className={cn(
+                          'text-[14px] leading-snug',
+                          !checked
+                            ? 'text-[var(--text-tertiary)] line-through'
+                            : destructive
+                              ? 'text-[var(--destructive)]'
+                              : 'text-[var(--text-primary)]'
+                        )}>
+                          {describeAction(action)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <div className="flex gap-2">
               <Button
                 type="button"
-                onClick={handleParse}
-                disabled={!text.trim() || state === 'parsing' || state === 'executing'}
-                className="w-full rounded-[var(--radius-full)]"
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="rounded-[var(--radius-full)]"
               >
-                {state === 'parsing' ? (
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                ) : state === 'executing' ? (
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                <ChevronLeft className="h-4 w-4 mr-0.5" />
+                Back
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={executeActions}
+                disabled={selectedCount === 0 || isExecuting}
+                className="flex-1 rounded-[var(--radius-full)]"
+              >
+                {isExecuting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    Executing {executingProgress.current} of {executingProgress.total}...
+                  </>
                 ) : (
-                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  <>Execute {selectedCount} Action{selectedCount !== 1 ? 's' : ''}</>
                 )}
-                {state === 'parsing' ? 'Understanding...' : state === 'executing' ? 'Executing...' : 'Run Command'}
               </Button>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="What would you like to do?"
+              rows={3}
+              className="min-h-[80px] bg-[var(--bg-elevated)]"
+              disabled={state === 'parsing' || state === 'executing'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleParse();
+                }
+              }}
+            />
 
-      {/* AI not configured guidance */}
-      <Dialog open={showAiGuide} onOpenChange={setShowAiGuide}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>AI Not Configured</DialogTitle>
-          </DialogHeader>
-          <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed">
-            To use AI commands, configure an AI provider in Settings. Supported providers include OpenAI, Anthropic, and OpenAI-compatible APIs.
-          </p>
-          <div className="flex justify-end mt-4">
-            <Button onClick={() => setShowAiGuide(false)} className="rounded-[var(--radius-full)]">
-              Got it
+            {/* Examples and keyboard shortcut */}
+            <div className="space-y-2">
+              <div className="text-[12px] text-[var(--text-tertiary)] leading-relaxed space-y-1.5">
+                <p className="font-medium text-[var(--text-secondary)]">Examples:</p>
+                <div className="grid gap-1">
+                  <p><span className="text-[var(--text-secondary)]">Add/remove items</span> — "Add screwdriver to the tools bin" or "Remove batteries from kitchen box"</p>
+                  <p><span className="text-[var(--text-secondary)]">Organize</span> — "Move batteries from kitchen to garage" or "Tag tools bin as hardware"</p>
+                  <p><span className="text-[var(--text-secondary)]">Manage bins</span> — "Create a bin called Holiday Decorations in the attic" or "Delete the empty box bin"</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-[var(--text-tertiary)]">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-active)] text-[var(--text-secondary)] font-mono text-[10px]">{shortcutHint}</kbd> to send
+              </p>
+            </div>
+
+            {error && (
+              <p className="text-[13px] text-[var(--destructive)]">{error}</p>
+            )}
+
+            {/* Inline AI setup section */}
+            {!aiSettingsLoading && !isAiReady && (
+              <div className="text-left">
+                <button
+                  type="button"
+                  onClick={() => setAiExpanded(!aiExpanded)}
+                  className="flex items-center gap-1.5 text-[13px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', aiExpanded && 'rotate-90')} />
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Set up AI provider to get started
+                </button>
+                {aiExpanded && (
+                  <div className="mt-2 space-y-2.5 rounded-[var(--radius-md)] bg-[var(--bg-input)] p-3">
+                    {/* Provider pills */}
+                    <div className="flex gap-1.5">
+                      {AI_PROVIDERS.map((p) => (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => {
+                            setAiProvider(p.key);
+                            setAiModel(DEFAULT_MODELS[p.key]);
+                            setAiTestResult(null);
+                          }}
+                          className={cn(
+                            'px-2.5 py-1 rounded-full text-[12px] transition-colors',
+                            aiProvider === p.key
+                              ? 'bg-[var(--accent)] text-white'
+                              : 'bg-[var(--bg-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* API key */}
+                    <div className="relative">
+                      <input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={aiApiKey}
+                        onChange={(e) => { setAiApiKey(e.target.value); setAiTestResult(null); }}
+                        placeholder="API key"
+                        className="w-full h-8 rounded-[var(--radius-sm)] bg-[var(--bg-elevated)] border border-[var(--border-primary)] px-2.5 pr-8 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                      >
+                        {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                    {/* Model */}
+                    <input
+                      type="text"
+                      value={aiModel}
+                      onChange={(e) => { setAiModel(e.target.value); setAiTestResult(null); }}
+                      placeholder="Model name"
+                      className="w-full h-8 rounded-[var(--radius-sm)] bg-[var(--bg-elevated)] border border-[var(--border-primary)] px-2.5 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                    />
+                    {/* Endpoint URL (openai-compatible only) */}
+                    {aiProvider === 'openai-compatible' && (
+                      <input
+                        type="text"
+                        value={aiEndpointUrl}
+                        onChange={(e) => setAiEndpointUrl(e.target.value)}
+                        placeholder="Endpoint URL"
+                        className="w-full h-8 rounded-[var(--radius-sm)] bg-[var(--bg-elevated)] border border-[var(--border-primary)] px-2.5 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                      />
+                    )}
+                    {/* Test result */}
+                    {aiTestResult && (
+                      <p className={cn('text-[12px]', aiTestResult === 'success' ? 'text-green-500' : 'text-red-500')}>
+                        {aiTestResult === 'success' ? 'Connection successful' : 'Connection failed — check settings'}
+                      </p>
+                    )}
+                    {/* Test + Save buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleTestAi}
+                        disabled={!aiApiKey || !aiModel || aiTesting}
+                        className="flex-1 h-7 rounded-[var(--radius-sm)] bg-[var(--bg-active)] text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 transition-colors"
+                      >
+                        {aiTesting ? 'Testing...' : 'Test'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveAi}
+                        disabled={!aiApiKey || !aiModel || aiSaving}
+                        className="flex-1 h-7 rounded-[var(--radius-sm)] bg-[var(--accent)] text-[12px] text-white disabled:opacity-40 transition-colors"
+                      >
+                        {aiSaving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AI configured indicator (after inline setup) */}
+            {!aiSettingsLoading && !settings && aiConfigured && (
+              <div className="flex items-center gap-1.5 text-[12px] text-[var(--accent)]">
+                <Check className="h-3.5 w-3.5" />
+                <span>AI configured</span>
+              </div>
+            )}
+
+            <Button
+              type="button"
+              onClick={handleParse}
+              disabled={!text.trim() || state === 'parsing' || state === 'executing'}
+              className="w-full rounded-[var(--radius-full)]"
+            >
+              {state === 'parsing' ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : state === 'executing' ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-1.5" />
+              )}
+              {state === 'parsing' ? 'Understanding...' : state === 'executing' ? 'Executing...' : 'Send'}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

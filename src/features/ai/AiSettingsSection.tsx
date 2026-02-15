@@ -15,7 +15,7 @@ import type { AiProvider } from '@/types';
 const PROVIDER_OPTIONS: { value: AiProvider; label: string }[] = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic' },
-  { value: 'openai-compatible', label: 'Local LLM' },
+  { value: 'openai-compatible', label: 'Self-Hosted' },
 ];
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
@@ -53,6 +53,7 @@ export function AiSettingsSection() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [testError, setTestError] = useState('');
+  const [touched, setTouched] = useState(false);
 
   // Populate form from loaded settings
   useEffect(() => {
@@ -92,7 +93,8 @@ export function AiSettingsSection() {
       setTestResult('success');
     } catch (err) {
       setTestResult('error');
-      setTestError(err instanceof Error ? err.message : 'Connection failed');
+      const base = err instanceof Error ? err.message : 'Connection failed';
+      setTestError(model ? `${base} (model: ${model})` : base);
     } finally {
       setTesting(false);
     }
@@ -140,12 +142,18 @@ export function AiSettingsSection() {
   if (isLoading) return null;
 
   return (
-    <Card>
+    <Card id="ai-settings">
       <CardContent>
-        <Label>AI Analysis</Label>
+        <Label>AI Settings</Label>
         <p className="text-[13px] text-[var(--text-tertiary)] mt-1">
-          Analyze bin photos and run natural language commands with AI.
+          Analyze photos, extract items from text, and run natural language commands.
         </p>
+
+        {settings === null && !touched && (
+          <p className="text-[13px] text-[var(--text-secondary)] mt-3">
+            Connect an AI provider to unlock photo analysis, item extraction from text and voice, and natural language commands for managing your bins.
+          </p>
+        )}
 
         <div className="flex flex-col gap-4 mt-4">
           {/* Provider selector */}
@@ -174,7 +182,7 @@ export function AiSettingsSection() {
                 id="ai-api-key"
                 type={showKey ? 'text' : 'password'}
                 value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setTestResult(null); }}
+                onChange={(e) => { setApiKey(e.target.value); setTestResult(null); setTouched(true); }}
                 placeholder={KEY_PLACEHOLDERS[provider]}
                 className="pr-10"
               />
@@ -194,10 +202,9 @@ export function AiSettingsSection() {
             <Input
               id="ai-model"
               value={model}
-              onChange={(e) => { setModel(e.target.value); setTestResult(null); }}
+              onChange={(e) => { setModel(e.target.value); setTestResult(null); setTouched(true); }}
               placeholder={MODEL_HINTS[provider]}
             />
-            <p className="text-[12px] text-[var(--text-tertiary)]">{MODEL_HINTS[provider]}</p>
           </div>
 
           {/* Endpoint URL — only for openai-compatible */}
@@ -213,6 +220,13 @@ export function AiSettingsSection() {
             </div>
           )}
 
+          {/* Required fields hint */}
+          {touched && !apiKey && !model && (
+            <p className="text-[12px] text-[var(--text-tertiary)]">
+              API key and model are required.
+            </p>
+          )}
+
           {/* Custom Prompts */}
           <div className="space-y-2">
             <p className="text-[13px] text-[var(--text-secondary)] font-medium">Custom Prompts</p>
@@ -225,7 +239,7 @@ export function AiSettingsSection() {
                 className="flex items-center gap-1.5 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               >
                 <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', promptExpanded && 'rotate-90')} />
-                Image Analysis
+                Photo Analysis
                 {customPrompt.trim() && (
                   <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-full)] bg-[var(--accent)] text-[var(--text-on-accent)]">
                     customized
@@ -252,7 +266,7 @@ export function AiSettingsSection() {
                         className="flex items-center gap-1 text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors shrink-0 ml-2"
                       >
                         <RotateCcw className="h-3 w-3" />
-                        Reset
+                        Reset to Default
                       </button>
                     )}
                   </div>
@@ -268,7 +282,7 @@ export function AiSettingsSection() {
                 className="flex items-center gap-1.5 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
               >
                 <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', commandPromptExpanded && 'rotate-90')} />
-                AI Command
+                Commands
                 {commandPrompt.trim() && (
                   <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-full)] bg-[var(--accent)] text-[var(--text-on-accent)]">
                     customized
@@ -286,7 +300,7 @@ export function AiSettingsSection() {
                   />
                   <div className="flex items-center justify-between">
                     <p className="text-[12px] text-[var(--text-tertiary)]">
-                      Customize how natural language commands are interpreted. Leave empty for the default prompt.
+                      Customize how commands like &apos;add screwdriver to tools bin&apos; are parsed. Leave empty for default.
                     </p>
                     {commandPrompt.trim() && (
                       <button
@@ -295,7 +309,7 @@ export function AiSettingsSection() {
                         className="flex items-center gap-1 text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors shrink-0 ml-2"
                       >
                         <RotateCcw className="h-3 w-3" />
-                        Reset
+                        Reset to Default
                       </button>
                     )}
                   </div>
@@ -306,7 +320,7 @@ export function AiSettingsSection() {
 
           {/* Test result */}
           {testResult === 'success' && (
-            <p className="text-[13px] text-green-600 dark:text-green-400">Connection successful</p>
+            <p className="text-[13px] text-green-600 dark:text-green-400">Connected to {model} successfully</p>
           )}
           {testResult === 'error' && (
             <p className="text-[13px] text-[var(--destructive)]">{testError}</p>
@@ -336,7 +350,7 @@ export function AiSettingsSection() {
                 onClick={handleRemove}
                 className="rounded-[var(--radius-full)] text-[var(--destructive)]"
               >
-                Remove
+                Remove AI Settings
               </Button>
             )}
           </div>

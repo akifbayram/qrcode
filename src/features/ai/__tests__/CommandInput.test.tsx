@@ -57,13 +57,13 @@ describe('CommandInput', () => {
     render(<CommandInput {...defaultProps} />);
 
     expect(screen.getByPlaceholderText('What would you like to do?')).toBeDefined();
-    expect(screen.getByText('Run Command')).toBeDefined();
+    expect(screen.getByText('Send')).toBeDefined();
   });
 
   it('button is disabled when textarea is empty', () => {
     render(<CommandInput {...defaultProps} />);
 
-    const button = screen.getByText('Run Command');
+    const button = screen.getByText('Send');
     expect(button.closest('button')).toHaveProperty('disabled', true);
   });
 
@@ -80,7 +80,7 @@ describe('CommandInput', () => {
     const textarea = screen.getByPlaceholderText('What would you like to do?');
     fireEvent.change(textarea, { target: { value: 'add hammer to tools' } });
 
-    const button = screen.getByText('Run Command');
+    const button = screen.getByText('Send');
     fireEvent.click(button);
 
     await waitFor(() => {
@@ -102,7 +102,7 @@ describe('CommandInput', () => {
 
     const textarea = screen.getByPlaceholderText('What would you like to do?');
     fireEvent.change(textarea, { target: { value: 'add hammer' } });
-    fireEvent.click(screen.getByText('Run Command'));
+    fireEvent.click(screen.getByText('Send'));
 
     await waitFor(() => {
       expect(screen.getByText('Back')).toBeDefined();
@@ -120,10 +120,10 @@ describe('CommandInput', () => {
 
     const textarea = screen.getByPlaceholderText('What would you like to do?');
     fireEvent.change(textarea, { target: { value: 'do something' } });
-    fireEvent.click(screen.getByText('Run Command'));
+    fireEvent.click(screen.getByText('Send'));
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to parse command')).toBeDefined();
+      expect(screen.getByText("Couldn't understand that command — try rephrasing")).toBeDefined();
     });
   });
 
@@ -137,10 +137,10 @@ describe('CommandInput', () => {
 
     const textarea = screen.getByPlaceholderText('What would you like to do?');
     fireEvent.change(textarea, { target: { value: 'asdfgh' } });
-    fireEvent.click(screen.getByText('Run Command'));
+    fireEvent.click(screen.getByText('Send'));
 
     await waitFor(() => {
-      expect(screen.getByText(/No actions could be determined/)).toBeDefined();
+      expect(screen.getByText(/No matching bins found/)).toBeDefined();
     });
   });
 });

@@ -103,7 +103,7 @@ describe('useAiAnalysis', () => {
       await result.current.analyze('photo-1');
     });
 
-    expect(result.current.error).toBe('Check your API key and model name');
+    expect(result.current.error).toBe('Invalid API key or model — check Settings > AI');
     expect(result.current.suggestions).toBeNull();
   });
 
@@ -116,7 +116,7 @@ describe('useAiAnalysis', () => {
       await result.current.analyze('photo-1');
     });
 
-    expect(result.current.error).toBe('Rate limited \u2014 try again in a moment');
+    expect(result.current.error).toBe('AI provider rate limited — wait a moment and try again');
   });
 
   it('analyze: error 502 maps to provider error message', async () => {
@@ -128,7 +128,7 @@ describe('useAiAnalysis', () => {
       await result.current.analyze('photo-1');
     });
 
-    expect(result.current.error).toBe('AI provider error \u2014 check your settings');
+    expect(result.current.error).toBe('Your AI provider returned an error — verify your settings');
   });
 
   it('analyze: unknown error maps to generic message', async () => {
@@ -140,7 +140,7 @@ describe('useAiAnalysis', () => {
       await result.current.analyze('photo-1');
     });
 
-    expect(result.current.error).toBe('Failed to analyze photo');
+    expect(result.current.error).toBe('Couldn\'t analyze the photo — try again');
   });
 
   it('analyzeMultiple: caps photoIds at MAX_AI_PHOTOS', async () => {

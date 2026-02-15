@@ -33,14 +33,14 @@ describe('DictationInput', () => {
   it('renders idle state with textarea and button', () => {
     render(<DictationInput {...defaultProps} />);
 
-    expect(screen.getByPlaceholderText('Describe the items in this bin...')).toBeDefined();
-    expect(screen.getByText('Add Items')).toBeDefined();
+    expect(screen.getByPlaceholderText("List or describe items, e.g. 'three socks, AA batteries, winter jacket'")).toBeDefined();
+    expect(screen.getByText('Extract Items')).toBeDefined();
   });
 
   it('button is disabled when textarea is empty', () => {
     render(<DictationInput {...defaultProps} />);
 
-    const button = screen.getByText('Add Items');
+    const button = screen.getByText('Extract Items');
     expect(button.closest('button')).toHaveProperty('disabled', true);
   });
 
@@ -48,10 +48,10 @@ describe('DictationInput', () => {
     const onAiSetupNeeded = vi.fn();
     render(<DictationInput {...defaultProps} aiConfigured={false} onAiSetupNeeded={onAiSetupNeeded} />);
 
-    const textarea = screen.getByPlaceholderText('Describe the items in this bin...');
+    const textarea = screen.getByPlaceholderText("List or describe items, e.g. 'three socks, AA batteries, winter jacket'");
     fireEvent.change(textarea, { target: { value: 'some items' } });
 
-    const button = screen.getByText('Add Items');
+    const button = screen.getByText('Extract Items');
     fireEvent.click(button);
 
     expect(onAiSetupNeeded).toHaveBeenCalled();
@@ -63,14 +63,14 @@ describe('DictationInput', () => {
 
     render(<DictationInput {...defaultProps} />);
 
-    const textarea = screen.getByPlaceholderText('Describe the items in this bin...');
+    const textarea = screen.getByPlaceholderText("List or describe items, e.g. 'three socks, AA batteries, winter jacket'");
     fireEvent.change(textarea, { target: { value: 'a hammer and ten nails' } });
 
-    const button = screen.getByText('Add Items');
+    const button = screen.getByText('Extract Items');
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(screen.getByText('2 items found')).toBeDefined();
+      expect(screen.getByText('2 items extracted')).toBeDefined();
     });
 
     expect(screen.getByText('Hammer')).toBeDefined();
@@ -83,12 +83,12 @@ describe('DictationInput', () => {
 
     render(<DictationInput {...defaultProps} onItemsConfirmed={onItemsConfirmed} />);
 
-    const textarea = screen.getByPlaceholderText('Describe the items in this bin...');
+    const textarea = screen.getByPlaceholderText("List or describe items, e.g. 'three socks, AA batteries, winter jacket'");
     fireEvent.change(textarea, { target: { value: 'items' } });
-    fireEvent.click(screen.getByText('Add Items'));
+    fireEvent.click(screen.getByText('Extract Items'));
 
     await waitFor(() => {
-      expect(screen.getByText('2 items found')).toBeDefined();
+      expect(screen.getByText('2 items extracted')).toBeDefined();
     });
 
     fireEvent.click(screen.getByText('Add 2 Items'));
@@ -101,17 +101,17 @@ describe('DictationInput', () => {
 
     render(<DictationInput {...defaultProps} />);
 
-    const textarea = screen.getByPlaceholderText('Describe the items in this bin...');
+    const textarea = screen.getByPlaceholderText("List or describe items, e.g. 'three socks, AA batteries, winter jacket'");
     fireEvent.change(textarea, { target: { value: 'an item' } });
-    fireEvent.click(screen.getByText('Add Items'));
+    fireEvent.click(screen.getByText('Extract Items'));
 
     await waitFor(() => {
-      expect(screen.getByText('1 item found')).toBeDefined();
+      expect(screen.getByText('1 item extracted')).toBeDefined();
     });
 
-    fireEvent.click(screen.getByText('Back'));
+    fireEvent.click(screen.getByText('Edit'));
 
-    expect(screen.getByPlaceholderText('Describe the items in this bin...')).toBeDefined();
+    expect(screen.getByPlaceholderText("List or describe items, e.g. 'three socks, AA batteries, winter jacket'")).toBeDefined();
   });
 
   it('shows error message on failure', async () => {
@@ -119,12 +119,12 @@ describe('DictationInput', () => {
 
     render(<DictationInput {...defaultProps} />);
 
-    const textarea = screen.getByPlaceholderText('Describe the items in this bin...');
+    const textarea = screen.getByPlaceholderText("List or describe items, e.g. 'three socks, AA batteries, winter jacket'");
     fireEvent.change(textarea, { target: { value: 'stuff' } });
-    fireEvent.click(screen.getByText('Add Items'));
+    fireEvent.click(screen.getByText('Extract Items'));
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to structure text')).toBeDefined();
+      expect(screen.getByText("Couldn't extract items — try describing them differently")).toBeDefined();
     });
   });
 });

@@ -20,7 +20,7 @@ const STEPS = ['Location', 'Bin'] as const;
 const AI_PROVIDERS: { key: AiProvider; label: string }[] = [
   { key: 'openai', label: 'OpenAI' },
   { key: 'anthropic', label: 'Anthropic' },
-  { key: 'openai-compatible', label: 'Compatible' },
+  { key: 'openai-compatible', label: 'Self-Hosted' },
 ];
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
@@ -126,7 +126,7 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
     // If AI isn't configured, guide user to the setup section
     if (!aiConfigured) {
       setAiExpanded(true);
-      setAnalyzeError('Set up an AI provider below to analyze photos');
+      setAnalyzeError('Configure an AI provider below to analyze photos');
       return;
     }
     setAnalyzing(true);
@@ -422,7 +422,7 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                       onClick={() => {
                         if (!aiConfigured) {
                           setAiExpanded(true);
-                          setAnalyzeError('Set up an AI provider below to use dictation');
+                          setAnalyzeError('Configure an AI provider below to use dictation');
                           return;
                         }
                         setDictationOpen(!dictationOpen);
@@ -474,7 +474,7 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                         aiConfigured={aiConfigured}
                         onAiSetupNeeded={() => {
                           setAiExpanded(true);
-                          setAnalyzeError('Set up an AI provider below to use dictation');
+                          setAnalyzeError('Configure an AI provider below to use dictation');
                         }}
                       />
                     </div>
@@ -636,7 +636,7 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                             {/* Test result */}
                             {aiTestResult && (
                               <p className={cn('text-[12px]', aiTestResult === 'success' ? 'text-green-500' : 'text-red-500')}>
-                                {aiTestResult === 'success' ? 'Connection successful' : 'Connection failed — check settings'}
+                                {aiTestResult === 'success' ? 'Connected successfully' : 'Connection failed — check your API key and model'}
                               </p>
                             )}
                             {/* Test + Save buttons */}

@@ -63,19 +63,19 @@ describe('structureTextItems', () => {
 
 describe('mapStructureErrorMessage', () => {
   it('maps 422 to API key message', () => {
-    expect(mapStructureErrorMessage(new ApiError(422, 'fail'))).toBe('Check your API key and model name');
+    expect(mapStructureErrorMessage(new ApiError(422, 'fail'))).toBe('Invalid API key or model — check Settings > AI');
   });
 
   it('maps 429 to rate limit message', () => {
-    expect(mapStructureErrorMessage(new ApiError(429, 'fail'))).toBe('Rate limited \u2014 try again in a moment');
+    expect(mapStructureErrorMessage(new ApiError(429, 'fail'))).toBe('AI provider rate limited — wait a moment and try again');
   });
 
   it('maps 502 to provider error message', () => {
-    expect(mapStructureErrorMessage(new ApiError(502, 'fail'))).toBe('AI provider error \u2014 check your settings');
+    expect(mapStructureErrorMessage(new ApiError(502, 'fail'))).toBe('Your AI provider returned an error — verify your settings');
   });
 
   it('maps unknown error to generic message', () => {
-    expect(mapStructureErrorMessage(new TypeError('oops'))).toBe('Failed to structure text');
+    expect(mapStructureErrorMessage(new TypeError('oops'))).toBe('Couldn\'t extract items — try describing them differently');
   });
 });
 
@@ -106,7 +106,7 @@ describe('useTextStructuring', () => {
       await result.current.structure({ text: 'some items' });
     });
 
-    expect(result.current.error).toBe('AI provider error \u2014 check your settings');
+    expect(result.current.error).toBe('Your AI provider returned an error — verify your settings');
     expect(result.current.structuredItems).toBeNull();
   });
 
