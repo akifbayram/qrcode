@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Package, X, Ban, Camera, Sparkles, Loader2, ChevronRight, Eye, EyeOff, Check, Mic } from 'lucide-react';
+import { MapPin, Package, X, Ban, Camera, Sparkles, Loader2, ChevronRight, Eye, EyeOff, Check, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,7 @@ import { addPhoto } from '@/features/photos/usePhotos';
 import { compressImage } from '@/features/photos/compressImage';
 import { analyzeImageFiles, MAX_AI_PHOTOS } from '@/features/ai/useAiAnalysis';
 import { useAiSettings, saveAiSettings, testAiConnection } from '@/features/ai/useAiSettings';
-import { DictationInput } from '@/features/ai/DictationInput';
+import { useTextStructuring } from '@/features/ai/useTextStructuring';
 import { COLOR_PALETTE } from '@/lib/colorPalette';
 import type { AiProvider } from '@/types';
 
@@ -52,11 +52,15 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
   const [binItems, setBinItems] = useState<string[]>([]);
   const [itemInput, setItemInput] = useState('');
   const itemInputRef = useRef<HTMLInputElement>(null);
-  const [dictationOpen, setDictationOpen] = useState(false);
+  const [itemAiState, setItemAiState] = useState<'input' | 'expanded' | 'processing' | 'preview'>('input');
+  const [itemAiText, setItemAiText] = useState('');
+  const [itemAiChecked, setItemAiChecked] = useState<Map<number, boolean>>(new Map());
   // Photo state
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // AI text structuring
+  const { structuredItems: itemAiStructured, isStructuring: itemAiStructuring, error: itemAiError, structure: itemAiStructure, clearStructured: itemAiClearStructured } = useTextStructuring();
   // AI analysis state
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -417,66 +421,232 @@ export function OnboardingOverlay({ step, locationId, advanceWithLocation, compl
                 <div className="text-left">
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[13px] text-[var(--text-tertiary)]">Items</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!aiConfigured) {
-                          setAiExpanded(true);
-                          setAnalyzeError('Configure an AI provider below to use dictation');
-                          return;
-                        }
-                        setDictationOpen(!dictationOpen);
-                      }}
-                      className="flex items-center gap-1 text-[12px] text-[var(--accent)] hover:opacity-80 transition-opacity"
-                    >
-                      <Mic className="h-3.5 w-3.5" />
-                      Dictate
-                    </button>
+                    {itemAiState === 'input' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!aiConfigured) {
+                            setAiExpanded(true);
+                            setAnalyzeError('Configure an AI provider below to use AI extraction');
+                            return;
+                          }
+                          itemAiClearStructured();
+                          if (itemInput.trim()) {
+                            const text = itemInput.trim();
+                            setItemAiText(text);
+                            setItemInput('');
+                            setItemAiState('processing');
+                            itemAiStructure({
+                              text,
+                              mode: 'items',
+                              context: { binName, existingItems: binItems },
+                              locationId,
+                            }).then((items) => {
+                              if (items) {
+                                const initial = new Map<number, boolean>();
+                                items.forEach((_, i) => initial.set(i, true));
+                                setItemAiChecked(initial);
+                                setItemAiState('preview');
+                              } else {
+                                setItemAiState('expanded');
+                              }
+                            });
+                          } else {
+                            setItemAiText('');
+                            setItemAiState('expanded');
+                          }
+                        }}
+                        className="flex items-center gap-1 text-[12px] text-[var(--accent)] hover:opacity-80 transition-opacity"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        AI Extract
+                      </button>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2 focus-within:ring-2 focus-within:ring-[var(--accent)]">
-                    {binItems.map((item, i) => (
-                      <Badge key={i} variant="secondary" className="gap-1 pl-1.5">
+
+                  {itemAiState === 'input' && (
+                    <div className="flex flex-wrap gap-1.5 rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2 focus-within:ring-2 focus-within:ring-[var(--accent)]">
+                      {binItems.map((item, i) => (
+                        <Badge key={i} variant="secondary" className="gap-1 pl-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setBinItems(binItems.filter((_, j) => j !== i))}
+                            className="mr-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                          {item}
+                        </Badge>
+                      ))}
+                      <input
+                        ref={itemInputRef}
+                        value={itemInput}
+                        onChange={(e) => setItemInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ',') && itemInput.trim()) {
+                            e.preventDefault();
+                            setBinItems([...binItems, itemInput.trim()]);
+                            setItemInput('');
+                          } else if (e.key === 'Backspace' && !itemInput && binItems.length > 0) {
+                            setBinItems(binItems.slice(0, -1));
+                          }
+                        }}
+                        placeholder={binItems.length === 0 ? 'Type and press Enter' : ''}
+                        className="h-6 min-w-[80px] flex-1 bg-transparent p-0 text-[15px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {(itemAiState === 'expanded' || itemAiState === 'processing') && (
+                    <div className="rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2.5 space-y-2">
+                      <textarea
+                        value={itemAiText}
+                        onChange={(e) => setItemAiText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                            e.preventDefault();
+                            if (!itemAiText.trim() || itemAiStructuring) return;
+                            setItemAiState('processing');
+                            itemAiStructure({
+                              text: itemAiText.trim(),
+                              mode: 'items',
+                              context: { binName, existingItems: binItems },
+                              locationId,
+                            }).then((items) => {
+                              if (items) {
+                                const initial = new Map<number, boolean>();
+                                items.forEach((_, i) => initial.set(i, true));
+                                setItemAiChecked(initial);
+                                setItemAiState('preview');
+                              } else {
+                                setItemAiState('expanded');
+                              }
+                            });
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setItemAiState('input');
+                            setItemAiText('');
+                            itemAiClearStructured();
+                          }
+                        }}
+                        placeholder="List or describe items, e.g. 'three socks, AA batteries, winter jacket'"
+                        rows={3}
+                        disabled={itemAiStructuring}
+                        autoFocus
+                        className="w-full min-h-[80px] bg-[var(--bg-elevated)] rounded-[var(--radius-sm)] px-3 py-2 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none resize-none disabled:opacity-50"
+                      />
+                      {itemAiError && (
+                        <p className="text-[12px] text-[var(--destructive)]">{itemAiError}</p>
+                      )}
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setBinItems(binItems.filter((_, j) => j !== i))}
-                          className="mr-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                          onClick={() => {
+                            setItemAiState('input');
+                            setItemAiText('');
+                            itemAiClearStructured();
+                          }}
+                          className="text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
                         >
-                          <X className="h-2.5 w-2.5" />
+                          Cancel
                         </button>
-                        {item}
-                      </Badge>
-                    ))}
-                    <input
-                      ref={itemInputRef}
-                      value={itemInput}
-                      onChange={(e) => setItemInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if ((e.key === 'Enter' || e.key === ',') && itemInput.trim()) {
-                          e.preventDefault();
-                          setBinItems([...binItems, itemInput.trim()]);
-                          setItemInput('');
-                        } else if (e.key === 'Backspace' && !itemInput && binItems.length > 0) {
-                          setBinItems(binItems.slice(0, -1));
-                        }
-                      }}
-                      placeholder={binItems.length === 0 ? 'Type and press Enter' : ''}
-                      className="h-6 min-w-[80px] flex-1 bg-transparent p-0 text-[15px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none"
-                    />
-                  </div>
-                  {dictationOpen && (
-                    <div className="mt-2">
-                      <DictationInput
-                        onItemsConfirmed={(newItems) => setBinItems([...binItems, ...newItems])}
-                        onClose={() => setDictationOpen(false)}
-                        binName={binName}
-                        existingItems={binItems}
-                        locationId={locationId}
-                        aiConfigured={aiConfigured}
-                        onAiSetupNeeded={() => {
-                          setAiExpanded(true);
-                          setAnalyzeError('Configure an AI provider below to use dictation');
-                        }}
-                      />
+                        <div className="flex-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!itemAiText.trim() || itemAiStructuring) return;
+                            setItemAiState('processing');
+                            itemAiStructure({
+                              text: itemAiText.trim(),
+                              mode: 'items',
+                              context: { binName, existingItems: binItems },
+                              locationId,
+                            }).then((items) => {
+                              if (items) {
+                                const initial = new Map<number, boolean>();
+                                items.forEach((_, i) => initial.set(i, true));
+                                setItemAiChecked(initial);
+                                setItemAiState('preview');
+                              } else {
+                                setItemAiState('expanded');
+                              }
+                            });
+                          }}
+                          disabled={!itemAiText.trim() || itemAiStructuring}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[var(--accent)] text-white text-[12px] disabled:opacity-40 transition-colors"
+                        >
+                          {itemAiStructuring ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3 w-3" />
+                          )}
+                          {itemAiStructuring ? 'Extracting...' : 'Extract'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {itemAiState === 'preview' && itemAiStructured && (
+                    <div className="rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2.5 space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {itemAiStructured.map((item, i) => {
+                          const checked = itemAiChecked.get(i) !== false;
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                setItemAiChecked((prev) => {
+                                  const next = new Map(prev);
+                                  next.set(i, !(prev.get(i) ?? true));
+                                  return next;
+                                });
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] transition-all ${
+                                checked
+                                  ? 'bg-[var(--accent)] text-white'
+                                  : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] line-through'
+                              }`}
+                            >
+                              {checked && <Check className="h-2.5 w-2.5" />}
+                              {item}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            itemAiClearStructured();
+                            setItemAiChecked(new Map());
+                            setItemAiState('expanded');
+                          }}
+                          className="inline-flex items-center gap-0.5 text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                        >
+                          <ChevronLeft className="h-3 w-3" />
+                          Back
+                        </button>
+                        <div className="flex-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!itemAiStructured) return;
+                            const selected = itemAiStructured.filter((_, i) => itemAiChecked.get(i) !== false);
+                            if (selected.length > 0) {
+                              setBinItems([...binItems, ...selected]);
+                            }
+                            setItemAiState('input');
+                            setItemAiText('');
+                            itemAiClearStructured();
+                            setItemAiChecked(new Map());
+                          }}
+                          disabled={itemAiStructured.filter((_, i) => itemAiChecked.get(i) !== false).length === 0}
+                          className="px-3 py-1 rounded-full bg-[var(--accent)] text-white text-[12px] disabled:opacity-40 transition-colors"
+                        >
+                          Add {itemAiStructured.filter((_, i) => itemAiChecked.get(i) !== false).length}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -45,14 +45,6 @@ const joinLimiter = rateLimit({
   message: { error: 'RATE_LIMITED', message: 'Too many attempts, please try again later' },
 });
 
-const aiLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'RATE_LIMITED', message: 'Too many AI requests, please try again later' },
-});
-
 // Routes
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', registerLimiter);
@@ -66,7 +58,7 @@ app.use('/api/photos', photosRoutes);
 app.use('/api/tag-colors', tagColorsRoutes);
 app.use('/api/print-settings', printSettingsRoutes);
 app.use('/api', exportRoutes);
-app.use('/api/ai', aiLimiter, aiRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

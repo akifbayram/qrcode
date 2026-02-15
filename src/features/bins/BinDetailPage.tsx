@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronDown, Pencil, Trash2, Printer, Save, Plus, Sparkles, Loader2, Mic } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Pencil, Trash2, Printer, Save, Sparkles, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,7 +23,7 @@ import { PhotoGallery } from '@/features/photos/PhotoGallery';
 import { usePhotos } from '@/features/photos/usePhotos';
 import { useAiSettings } from '@/features/ai/useAiSettings';
 import { useAiAnalysis } from '@/features/ai/useAiAnalysis';
-import { DictationInput } from '@/features/ai/DictationInput';
+import { useTextStructuring } from '@/features/ai/useTextStructuring';
 import { AiSuggestionsPanel } from '@/features/ai/AiSuggestionsPanel';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
@@ -57,12 +57,15 @@ export function BinDetailPage() {
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [qrExpanded, setQrExpanded] = useState(false);
   const [photosExpanded, setPhotosExpanded] = useState(false);
-  const [dictationOpen, setDictationOpen] = useState(false);
+  const [quickAddState, setQuickAddState] = useState<'input' | 'expanded' | 'processing' | 'preview'>('input');
+  const [quickAddExpandedText, setQuickAddExpandedText] = useState('');
+  const [quickAddChecked, setQuickAddChecked] = useState<Map<number, boolean>>(new Map());
 
   // AI analysis
   const { photos } = usePhotos(id);
   const { settings: aiSettings } = useAiSettings();
   const { suggestions, isAnalyzing, error: aiError, analyzeMultiple, clearSuggestions } = useAiAnalysis();
+  const { structuredItems: quickAddStructured, isStructuring: quickAddStructuring, error: quickAddError, structure: quickAddStructure, clearStructured: quickAddClearStructured } = useTextStructuring();
 
   if (isLoading || bin === undefined) {
     return (
@@ -332,7 +335,7 @@ export function BinDetailPage() {
               <ItemsInput
                 items={editItems}
                 onChange={setEditItems}
-                showDictation
+                showAi
                 aiConfigured={!!aiSettings}
                 onAiSetupNeeded={() => navigate('/settings#ai-settings')}
                 binName={editName}
@@ -450,61 +453,224 @@ export function BinDetailPage() {
                 <p className="mt-2 text-[15px] text-[var(--text-tertiary)] italic">No items yet</p>
               )}
               {/* Quick-add row */}
-              <div className="flex gap-2 mt-3">
-                <Input
-                  value={quickAddValue}
-                  onChange={(e) => setQuickAddValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleQuickAdd();
-                    }
-                  }}
-                  placeholder="Add item..."
-                  disabled={quickAddSaving}
-                  className="flex-1"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setDictationOpen(!dictationOpen)}
-                  aria-label="Dictate items"
-                  className="rounded-full h-10 w-10 shrink-0"
-                >
-                  <Mic className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleQuickAdd}
-                  disabled={!quickAddValue.trim() || quickAddSaving}
-                  aria-label="Add item"
-                  className="rounded-full h-10 w-10 shrink-0"
-                >
-                  <Plus className="h-5 w-5" />
-                </Button>
+              <div className="mt-3 rounded-[var(--radius-md)] bg-[var(--bg-input)] p-2.5 transition-all duration-200">
+                {quickAddState === 'input' && (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={quickAddValue}
+                      onChange={(e) => setQuickAddValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleQuickAdd();
+                        }
+                      }}
+                      placeholder="Add item..."
+                      disabled={quickAddSaving}
+                      className="h-7 bg-transparent p-0 text-base focus-visible:ring-0"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!aiSettings) {
+                          navigate('/settings#ai-settings');
+                          return;
+                        }
+                        quickAddClearStructured();
+                        if (quickAddValue.trim()) {
+                          const text = quickAddValue.trim();
+                          setQuickAddExpandedText(text);
+                          setQuickAddValue('');
+                          setQuickAddState('processing');
+                          quickAddStructure({
+                            text,
+                            mode: 'items',
+                            context: { binName: bin.name, existingItems: bin.items },
+                            locationId: activeLocationId ?? undefined,
+                          }).then((items) => {
+                            if (items) {
+                              const initial = new Map<number, boolean>();
+                              items.forEach((_, i) => initial.set(i, true));
+                              setQuickAddChecked(initial);
+                              setQuickAddState('preview');
+                            } else {
+                              setQuickAddState('expanded');
+                            }
+                          });
+                        } else {
+                          setQuickAddExpandedText('');
+                          setQuickAddState('expanded');
+                        }
+                      }}
+                      className="shrink-0 rounded-full p-1 text-[var(--accent)] hover:bg-[var(--bg-active)] transition-colors"
+                      aria-label="AI extract items"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {(quickAddState === 'expanded' || quickAddState === 'processing') && (
+                  <div className="space-y-2">
+                    <textarea
+                      value={quickAddExpandedText}
+                      onChange={(e) => setQuickAddExpandedText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                          e.preventDefault();
+                          if (!quickAddExpandedText.trim() || quickAddStructuring) return;
+                          setQuickAddState('processing');
+                          quickAddStructure({
+                            text: quickAddExpandedText.trim(),
+                            mode: 'items',
+                            context: { binName: bin.name, existingItems: bin.items },
+                            locationId: activeLocationId ?? undefined,
+                          }).then((items) => {
+                            if (items) {
+                              const initial = new Map<number, boolean>();
+                              items.forEach((_, i) => initial.set(i, true));
+                              setQuickAddChecked(initial);
+                              setQuickAddState('preview');
+                            } else {
+                              setQuickAddState('expanded');
+                            }
+                          });
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          setQuickAddState('input');
+                          setQuickAddExpandedText('');
+                          quickAddClearStructured();
+                        }
+                      }}
+                      placeholder="List or describe items, e.g. 'three socks, AA batteries, winter jacket'"
+                      rows={3}
+                      disabled={quickAddStructuring}
+                      autoFocus
+                      className="w-full min-h-[80px] bg-[var(--bg-elevated)] rounded-[var(--radius-sm)] px-3 py-2 text-base text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none resize-none disabled:opacity-50"
+                    />
+                    {quickAddError && (
+                      <p className="text-[13px] text-[var(--destructive)]">{quickAddError}</p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickAddState('input');
+                          setQuickAddExpandedText('');
+                          quickAddClearStructured();
+                        }}
+                        className="text-[13px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <div className="flex-1" />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          if (!quickAddExpandedText.trim() || quickAddStructuring) return;
+                          setQuickAddState('processing');
+                          quickAddStructure({
+                            text: quickAddExpandedText.trim(),
+                            mode: 'items',
+                            context: { binName: bin.name, existingItems: bin.items },
+                            locationId: activeLocationId ?? undefined,
+                          }).then((items) => {
+                            if (items) {
+                              const initial = new Map<number, boolean>();
+                              items.forEach((_, i) => initial.set(i, true));
+                              setQuickAddChecked(initial);
+                              setQuickAddState('preview');
+                            } else {
+                              setQuickAddState('expanded');
+                            }
+                          });
+                        }}
+                        disabled={!quickAddExpandedText.trim() || quickAddStructuring}
+                        className="rounded-[var(--radius-full)] gap-1.5"
+                      >
+                        {quickAddStructuring ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        {quickAddStructuring ? 'Extracting...' : 'Extract'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {quickAddState === 'preview' && quickAddStructured && (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {quickAddStructured.map((item, i) => {
+                        const checked = quickAddChecked.get(i) !== false;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setQuickAddChecked((prev) => {
+                                const next = new Map(prev);
+                                next.set(i, !(prev.get(i) ?? true));
+                                return next;
+                              });
+                            }}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] transition-all ${
+                              checked
+                                ? 'bg-[var(--accent)] text-white'
+                                : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] line-through'
+                            }`}
+                          >
+                            {checked && <Check className="h-3 w-3" />}
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          quickAddClearStructured();
+                          setQuickAddChecked(new Map());
+                          setQuickAddState('expanded');
+                        }}
+                        className="rounded-[var(--radius-full)] gap-0.5"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Back
+                      </Button>
+                      <div className="flex-1" />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={async () => {
+                          if (!quickAddStructured || !id || !bin) return;
+                          const selected = quickAddStructured.filter((_, i) => quickAddChecked.get(i) !== false);
+                          if (selected.length === 0) return;
+                          try {
+                            await updateBin(id, { items: [...bin.items, ...selected] });
+                            showToast({ message: `Added ${selected.length} item${selected.length !== 1 ? 's' : ''}` });
+                          } catch {
+                            showToast({ message: 'Failed to add items' });
+                          }
+                          setQuickAddState('input');
+                          setQuickAddExpandedText('');
+                          quickAddClearStructured();
+                          setQuickAddChecked(new Map());
+                        }}
+                        disabled={quickAddStructured.filter((_, i) => quickAddChecked.get(i) !== false).length === 0}
+                        className="rounded-[var(--radius-full)]"
+                      >
+                        Add {quickAddStructured.filter((_, i) => quickAddChecked.get(i) !== false).length}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {dictationOpen && (
-                <div className="mt-3">
-                  <DictationInput
-                    onItemsConfirmed={async (newItems) => {
-                      if (!id || !bin) return;
-                      try {
-                        await updateBin(id, { items: [...bin.items, ...newItems] });
-                        showToast({ message: `Added ${newItems.length} item${newItems.length !== 1 ? 's' : ''}` });
-                      } catch {
-                        showToast({ message: 'Failed to add items' });
-                      }
-                    }}
-                    onClose={() => setDictationOpen(false)}
-                    binName={bin.name}
-                    existingItems={bin.items}
-                    locationId={activeLocationId ?? undefined}
-                    aiConfigured={!!aiSettings}
-                    onAiSetupNeeded={() => navigate('/settings#ai-settings')}
-                  />
-                </div>
-              )}
             </CardContent>
           </Card>
 

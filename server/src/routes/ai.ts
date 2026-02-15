@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { query, generateUuid } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { analyzeImage, analyzeImages, testConnection, AiAnalysisError } from '../lib/aiProviders.js';
@@ -13,6 +14,15 @@ import { parseCommand } from '../lib/commandParser.js';
 import type { CommandRequest } from '../lib/commandParser.js';
 
 const router = Router();
+
+// Rate-limit only endpoints that call external AI providers (not settings CRUD)
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'RATE_LIMITED', message: 'Too many AI requests, please try again later' },
+});
 
 const AI_ENCRYPTION_KEY = process.env.AI_ENCRYPTION_KEY;
 
@@ -191,7 +201,7 @@ router.delete('/settings', async (req, res) => {
 });
 
 // POST /api/ai/analyze-image — analyze raw uploaded image(s) (no stored photo required)
-router.post('/analyze-image', memoryUpload.fields([
+router.post('/analyze-image', aiLimiter, memoryUpload.fields([
   { name: 'photo', maxCount: 1 },
   { name: 'photos', maxCount: 5 },
 ]), async (req, res) => {
@@ -254,7 +264,7 @@ router.post('/analyze-image', memoryUpload.fields([
 });
 
 // POST /api/ai/analyze — analyze stored photo(s)
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', aiLimiter, async (req, res) => {
   try {
     const { photoId, photoIds } = req.body;
     // Accept either a single photoId or an array of photoIds
@@ -344,7 +354,7 @@ router.post('/analyze', async (req, res) => {
 });
 
 // POST /api/ai/structure-text — structure dictated/typed text into items
-router.post('/structure-text', async (req, res) => {
+router.post('/structure-text', aiLimiter, async (req, res) => {
   try {
     const { text, mode, context, locationId } = req.body;
 
@@ -398,7 +408,7 @@ router.post('/structure-text', async (req, res) => {
 });
 
 // POST /api/ai/command — parse natural language command into structured actions
-router.post('/command', async (req, res) => {
+router.post('/command', aiLimiter, async (req, res) => {
   try {
     const { text, locationId } = req.body;
 
@@ -504,7 +514,7 @@ router.post('/command', async (req, res) => {
 });
 
 // POST /api/ai/test — test connection with provided credentials
-router.post('/test', async (req, res) => {
+router.post('/test', aiLimiter, async (req, res) => {
   try {
     const { provider, apiKey, model, endpointUrl } = req.body;
 

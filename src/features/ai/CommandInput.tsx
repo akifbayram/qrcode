@@ -19,7 +19,7 @@ import type { Bin, AiProvider } from '@/types';
 const AI_PROVIDERS: { key: AiProvider; label: string }[] = [
   { key: 'openai', label: 'OpenAI' },
   { key: 'anthropic', label: 'Anthropic' },
-  { key: 'openai-compatible', label: 'Compatible' },
+  { key: 'openai-compatible', label: 'Self-Hosted' },
 ];
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {

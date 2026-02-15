@@ -285,7 +285,7 @@ export function BinCreateDialog({ open, onOpenChange, prefillName }: BinCreateDi
               <ItemsInput
                 items={items}
                 onChange={setItems}
-                showDictation
+                showAi
                 aiConfigured={!!aiSettings}
                 onAiSetupNeeded={() => setAiSetupOpen(true)}
                 binName={name}
